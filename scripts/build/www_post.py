@@ -51,16 +51,11 @@ if os.path.isdir(os.path.join(target_dir, 'Documentation/')):
 
     # need this for content negotiation with documentation index
     if target == 'online':
-        f = open(os.path.join(target_dir, 'Documentation/.htaccess'), 'w', encoding='utf-8')
-        f.write('#.htaccess\nDirectoryIndex index\n')
-        f.close()
-
+        with open(os.path.join(target_dir, 'Documentation/.htaccess'), 'w', encoding='utf-8') as f:
+            f.write('#.htaccess\nDirectoryIndex index\n')
 html_files = []
 for root, dirs, files in os.walk(target_dir):
-    for f in files:
-        if f.endswith(".html"):
-            html_files.append(os.path.join(root, f))
-
+    html_files.extend(os.path.join(root, f) for f in files if f.endswith(".html"))
 pages_dict = postprocess_html.build_pages_dict(html_files)
 sys.stderr.write("Processing HTML pages for %s target...\n" % target)
 postprocess_html.process_html_files(

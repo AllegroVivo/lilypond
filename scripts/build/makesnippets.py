@@ -22,6 +22,7 @@
 Read all .ly files from INPUT_DIR, insert translations from .texidoc
 files found in DOC_DIR/LANG/texdiocs, and write ther result to OUTPUT_DIR.'''
 
+
 import glob
 import sys
 import os.path
@@ -40,8 +41,9 @@ for f in glob.glob(os.path.join(input_dir, '*.ly')):
     name = os.path.basename(f)
     s = open(f, 'r', encoding='utf-8').read()
     for path in texidoc_dirs:
-        texidoc_translation_path = \
-            os.path.join(path, os.path.splitext(name)[0] + '.texidoc')
+        texidoc_translation_path = os.path.join(
+            path, f'{os.path.splitext(name)[0]}.texidoc'
+        )
         if os.path.exists(texidoc_translation_path):
             texidoc_translation = open(
                 texidoc_translation_path, 'r', encoding='utf-8').read()

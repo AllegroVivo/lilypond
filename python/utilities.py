@@ -64,11 +64,11 @@ def hexcolorval_to_nr(hex_val):
 
 
 def hex_to_color(hex_val):
-    res = re.match(
+    if res := re.match(
         r'#([0-9a-f][0-9a-f]|)([0-9a-f][0-9a-f])([0-9a-f][0-9a-f])([0-9a-f][0-9a-f])$',
         hex_val,
-        re.IGNORECASE)
-    if res:
+        re.IGNORECASE,
+    ):
         return [hexcolorval_to_nr(x) for x in res.group(2, 3, 4)]
     else:
         return None

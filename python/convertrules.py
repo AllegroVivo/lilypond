@@ -556,7 +556,7 @@ def regularize_id(s):
             x = 'x'
         elif x in string.lowercase and lastx == '_':
             x = x.upper()
-        s = s + x
+        s += x
         lastx = x
     return s
 
@@ -706,7 +706,7 @@ def conv(s):
         props = match.group(1)
         for (k, v) in list(break_dict.items()):
             props = re.sub(k, v, props)
-        return "breakAlignOrder = #'(%s)" % props
+        return f"breakAlignOrder = #'({props})"
 
     s = re.sub("breakAlignOrder *= *#'\\(([a-z_\n\tA-Z ]+)\\)",
                  func, s)
@@ -831,28 +831,26 @@ spanner_subst = {
 
 
 def subst_ev_name(match):
-    stype = 'STOP'
-    if re.search('start', match.group(1)):
-        stype = 'START'
+    stype = 'START' if re.search('start', match.group(1)) else 'STOP'
     mtype = spanner_subst[match.group(2)]
-    return "(make-span-event '%s %s)" % (mtype, stype)
+    return f"(make-span-event '{mtype} {stype})"
 
 
 def subst_definition_ev_name(match):
-    return ' = #%s' % subst_ev_name(match)
+    return f' = #{subst_ev_name(match)}'
 
 
 def subst_inline_ev_name(match):
     s = subst_ev_name(match)
-    return '#(ly-export %s)' % s
+    return f'#(ly-export {s})'
 
 
 def subst_csp_definition(match):
-    return ' = #(make-event-chord (list %s))' % subst_ev_name(match)
+    return f' = #(make-event-chord (list {subst_ev_name(match)}))'
 
 
 def subst_csp_inline(match):
-    return '#(ly-export (make-event-chord (list %s)))' % subst_ev_name(match)
+    return f'#(ly-export (make-event-chord (list {subst_ev_name(match)})))'
 
 
 @rule((1, 7, 2), r'''\spanrequest -> #(make-span-event ... ),
@@ -1074,7 +1072,7 @@ def conv(s):
 def sub_chord(m):
     s = m.group(1)
 
-    origstr = '<%s>' % s
+    origstr = f'<{s}>'
     if re.search(r'\\\\', s):
         return origstr
 
@@ -1097,7 +1095,7 @@ def sub_chord(m):
         if dur_str == '':
             dur_str = d
         if dur_str != d:
-            return '<%s>' % m.group(1)
+            return f'<{m.group(1)}>'
 
     pslur_strs = ['']
     dyns = ['']
@@ -1118,7 +1116,7 @@ def sub_chord(m):
 
         def sub_dyn_end(m, dyns=dyns):
             dyns.append(r' \!')
-            return ' ' + m.group(2)
+            return f' {m.group(2)}'
 
         s = re.sub(r'(\\!)\s*([a-z]+)', sub_dyn_end, s)
 
@@ -1182,6 +1180,7 @@ def sub_chord(m):
         def sub_pslurs(m, slur_strs=slur_strs):
             slur_strs.append(' \\)')
             return m.group(1)
+
         s = re.sub(r"\\\)[ ]*([a-z]+)", sub_pslurs, s)
 
     # end of while <>
@@ -1189,7 +1188,7 @@ def sub_chord(m):
     suffix = ''.join(slur_strs) + ''.join(pslur_strs) \
              + ''.join(dyns)
 
-    return '@STARTCHORD@%s@ENDCHORD@%s%s' % (s, dur_str, suffix)
+    return f'@STARTCHORD@{s}@ENDCHORD@{dur_str}{suffix}'
 
 
 def sub_chords(s):
@@ -1239,9 +1238,7 @@ rightpar = re.compile(r"\)")
 
 def text_markup(s):
     result = ''
-    # Find the beginning of each markup:
-    match = markup_start.search(s)
-    while match:
+    while match := markup_start.search(s):
         result = result + s[:match.end(1)] + r" \markup"
         s = s[match.end(2):]
         # Count matching parentheses to find the end of the
@@ -1249,10 +1246,7 @@ def text_markup(s):
         nesting_level = 0
         pars = re.finditer(r"[()]", s)
         for par in pars:
-            if par.group() == '(':
-                nesting_level = nesting_level + 1
-            else:
-                nesting_level = nesting_level - 1
+            nesting_level = nesting_level + 1 if par.group() == '(' else nesting_level - 1
             if nesting_level == 0:
                 markup_end = par.end()
                 break
@@ -1268,7 +1262,6 @@ def text_markup(s):
         result = result + markup
         # Find next markup
         s = s[markup_end:]
-        match = markup_start.search(s)
     result = result + s
     return result
 
@@ -1293,9 +1286,7 @@ string_or_scheme = re.compile('("(?:[^"\\\\]|\\\\.)*")|(#\\s*\'?\\s*\\()')
 
 def smarter_articulation_subst(s):
     result = ''
-    # Find the beginning of next string or Scheme expr.:
-    match = string_or_scheme.search(s)
-    while match:
+    while match := string_or_scheme.search(s):
         # Convert the preceding LilyPond code:
         previous_chunk = s[:match.start()]
         result = result + articulation_substitute(previous_chunk)
@@ -1309,18 +1300,13 @@ def smarter_articulation_subst(s):
             nesting_level = 0
             pars = re.finditer(r"[()]", s)
             for par in pars:
-                if par.group() == '(':
-                    nesting_level = nesting_level + 1
-                else:
-                    nesting_level = nesting_level - 1
+                nesting_level = nesting_level + 1 if par.group() == '(' else nesting_level - 1
                 if nesting_level == 0:
                     scheme_end = par.end()
                     break
             # Copy the Scheme expression to output:
             result = result + s[:scheme_end]
             s = s[scheme_end:]
-        # Find next string or Scheme expression:
-        match = string_or_scheme.search(s)
     # Convert the remainder of the file
     result = result + articulation_substitute(s)
     return result
@@ -1469,8 +1455,7 @@ def conv(s):
             '2': 'DOUBLE-SHARP',
         }[alt]
 
-        return '(ly:make-pitch %s %s %s)' % (m.group(1), m.group(2),
-                                             alt)
+        return f'(ly:make-pitch {m.group(1)} {m.group(2)} {alt})'
 
     s = re.sub("\\(ly:make-pitch *([0-9-]+) *([0-9-]+) *([0-9-]+) *\\)",
                  sub_alteration, s)
@@ -1542,11 +1527,12 @@ def conv(s):
         b = match.group(2)
 
         if b == 't':
-            if c == 'Score':
-                return ''
-            return r" \property %s.melismaBusyProperties \unset" % c
-
-        assert b == 'f', "Value must be ##t or ##f and not ##%s" % b
+            return (
+                ''
+                if c == 'Score'
+                else r" \property %s.melismaBusyProperties \unset" % c
+            )
+        assert b == 'f', f"Value must be ##t or ##f and not ##{b}"
         return r"\property %s.melismaBusyProperties = #'(melismaBusy)" % c
 
     s = re.sub(
@@ -1775,17 +1761,14 @@ def conv(s):
         s = re.sub(r'\s([a-zA-Z]+)\s*\\revert',
                    r' \\revert \1', s)
         return s
+
     s = re.sub(r'\\(translator|with)\s*{[^}]+}',  subst_in_trans, s)
 
     def sub_abs(m):
 
         context = m.group('context')
         d = m.groupdict()
-        if context:
-            context = " '%s" % context[:-1]  # -1: remove .
-        else:
-            context = ''
-
+        context = f" '{context[:-1]}" if context else ''
         d['context'] = context
 
         return r"""#(override-auto-beam-setting %(prop)s %(num)s %(den)s%(context)s)""" % d
@@ -2186,8 +2169,7 @@ def conv(s):
             stderr_write(_("Try the texstrings backend"))
             stderr_write('\n')
         else:
-            stderr_write(_("Do something like: %s") %
-                         ("recode %s..utf-8 FILE" % encoding))
+            stderr_write((_("Do something like: %s") % f"recode {encoding}..utf-8 FILE"))
             stderr_write('\n')
         stderr_write(_("Or save as UTF-8 in your editor"))
         stderr_write('\n')
@@ -2324,7 +2306,7 @@ def conv(s):
         if what == 'revert':
             return "revert %s #'callbacks %% %s\n" % (grob, newkey)
         if what == 'override':
-            return "override %s #'callbacks #'%s" % (grob, newkey)
+            return f"override {grob} #'callbacks #'{newkey}"
         raise RuntimeError('1st group should match revert or override')
 
     s = re.sub(r"(override|revert)\s*([a-zA-Z.]+)\s*#'(spacing-procedure|after-line-breaking-callback"
@@ -3077,7 +3059,7 @@ def conv(s):
             'Freebase': 'freebass',
             'OldEE': 'oldEE'
         }
-        return '"accordion.%s"' % d[m.group(1)]
+        return f'"accordion.{d[m.group(1)]}"'
 
     s = re.sub(r'"accordion\.acc([a-zA-Z]+)"',
                  sub_acc, s)
@@ -3222,11 +3204,12 @@ def conv(s):
         res = ""
         for tone in tones:
             args = semitones2pitch(int(tone))
-            res += ",(ly:make-pitch " + args + ") "
+            res += f",(ly:make-pitch {args}) "
         return res
 
     def new_tunings(matchobj):
-        return "stringTunings = #`(" + convert_tones(matchobj.group(1)) + ")"
+        return f"stringTunings = #`({convert_tones(matchobj.group(1))})"
+
     s = re.sub(r"stringTunings\s*=\s*#'\(([\d\s-]*)\)",
                  new_tunings, s)
 
@@ -3253,7 +3236,7 @@ def conv(s):
 def conv(s):
     def size_as_extent(matchobj):
         half = "%g" % (float(matchobj.group(1)) / 2)
-        return "bar-extent = #'(-" + half + " . " + half + ")"
+        return f"bar-extent = #'(-{half} . {half})"
 
     s = re.sub(r"bar-size\s*=\s*#([0-9\.]+)", size_as_extent, s)
 
@@ -3373,7 +3356,7 @@ def strip_export(s):
 def export_puller(m):
     if not re.search(r"ly:export\s+", m.group(0)):
         return m.group(0)
-    return "$" + strip_export(m.string[m.start(0)+1:m.end(0)])
+    return f"${strip_export(m.string[m.start(0) + 1:m.end(0)])}"
 
 
 def ugly_function_rewriter(m):
@@ -3389,8 +3372,9 @@ def record_ugly(m):
     global should_really_be_music_function
     if not re.match(should_really_be_music_function, m.group(1)) \
             and re.search(r"ly:export\s+", m.group(2)):
-        should_really_be_music_function = \
-            should_really_be_music_function[:-1] + "|" + m.group(1) + ")"
+        should_really_be_music_function = (
+            f"{should_really_be_music_function[:-1]}|{m.group(1)})"
+        )
     return m.group(0)
 
 
@@ -3442,7 +3426,7 @@ matchfullmarkup = (r'\\markup\s*(?:@?\{' + lilylib.brace_matcher(20) + r'\}|' +
                    matchstring + r'|(?:\\[a-z_A-Z][a-z_A-Z-]*(?:' + matcharg +
                    r')*?\s*)*(?:' + matchstring + r"|@?\{" + lilylib.brace_matcher(20) +
                    r"\}))")
-matchmarkup = "(?:" + matchstring + "|" + matchfullmarkup + ")"
+matchmarkup = f"(?:{matchstring}|{matchfullmarkup})"
 
 
 @rule((2, 15, 25), r"\(auto)?Footnote(Grob)? -> \footnote")
@@ -3454,10 +3438,12 @@ def conv(s):
     # argument in the match.
     s = re.sub(r"\\footnote(" + matcharg + (r")(\s*" + matchmarkup)*2 + ")",
                  r"\\footnote\2\1\3", s)
-    s = re.sub(r"\\footnoteGrob"+("(" + matcharg + ")")*2 + r"(\s*" + matchmarkup + ")",
-                 r"\\footnote\3\2\1", s)
-    s = re.sub(r"\\autoFootnoteGrob" + ("(" + matcharg + ")")*2,
-                 r"\\footnote\2\1", s)
+    s = re.sub(
+        r"\\footnoteGrob" + f"({matcharg})" * 2 + r"(\s*" + matchmarkup + ")",
+        r"\\footnote\3\2\1",
+        s,
+    )
+    s = re.sub(r"\\autoFootnoteGrob" + f"({matcharg})" * 2, r"\\footnote\2\1", s)
     s = re.sub(r"\\autoFootnote",
                  r"\\footnote", s)
     return s
@@ -3493,15 +3479,42 @@ def conv(s):
 def conv(s):
     def not_first(s):
         def match_fun(m):
-            if m.group(1):
-                return m.group(0)
-            return m.expand(s)
+            return m.group(0) if m.group(1) else m.expand(s)
+
         return match_fun
-    s = re.sub("(" + matchfullmarkup + ")|"
-                 + r"(\\footnote(?:\s*"
-                 + matchmarkup + ")?" + matcharg + "(?:" + matcharg
-                 + r")?\s+" + matchmarkup + ")",
-                 not_first(r"\2 \\default"), s)
+
+    s = re.sub(
+        (
+            (
+                (
+                    (
+                        (
+                            (
+                                (
+                                    (
+                                        (
+                                            f"({matchfullmarkup})|"
+                                            + r"(\\footnote(?:\s*"
+                                        )
+                                        + matchmarkup
+                                    )
+                                    + ")?"
+                                )
+                                + matcharg
+                            )
+                            + "(?:"
+                        )
+                        + matcharg
+                    )
+                    + r")?\s+"
+                )
+                + matchmarkup
+            )
+            + ")"
+        ),
+        not_first(r"\2 \\default"),
+        s,
+    )
     return s
 
 
@@ -3568,16 +3581,17 @@ def conv(s):
     s = re.sub(barstring + r'"\.S\|:"', '\\1\\2"S.|:"', s)
     s = re.sub(barstring + r'":\|S\|:"', '\\1\\2":|.S.|:"', s)
     s = re.sub(barstring + r'":\|S\.\|:"', '\\1\\2":|.S.|:-S"', s)
-    s = re.sub(barstring + r'":"', '\\1\\2";"', s)
+    s = re.sub(f'{barstring}":"', '\\1\\2";"', s)
     s = re.sub(barstring + r'"\|s"', '\\1\\2"|-s"', s)
-    s = re.sub(barstring + r'"dashed"', '\\1\\2"!"', s)
-    s = re.sub(barstring + r'"kievan"', '\\1\\2"k"', s)
-    s = re.sub(barstring + r'"empty"', '\\1\\2"-"', s)
+    s = re.sub(f'{barstring}"dashed"', '\\1\\2"!"', s)
+    s = re.sub(f'{barstring}"kievan"', '\\1\\2"k"', s)
+    s = re.sub(f'{barstring}"empty"', '\\1\\2"-"', s)
     return s
 
 
-symbol_list = (r"#'(?:" + wordsyntax + r"|\(\s*" + wordsyntax
-               + r"(?:\s+" + wordsyntax + r")*\s*\))")
+symbol_list = (
+    (f"#'(?:{wordsyntax}" + r"|\(\s*" + wordsyntax + r"(?:\s+") + wordsyntax
+) + r")*\s*\))"
 
 grob_path = symbol_list + r"(?:\s+" + symbol_list + r")*"
 
@@ -3592,10 +3606,36 @@ def convert_overrides_to_dots(s):
 
 # The following regexp appears to be unusually expensive to compile,
 # so we do it only once instead of for every file
-footnotec = re.compile("(" + matchfullmarkup + ")|"
-                       + r"(\\footnote(?:\s*"
-                       + matchmarkup + ")?" + matcharg + ")(" + matcharg
-                       + r")?(\s+" + matchmarkup + r")(\s+\\default)?")
+footnotec = re.compile(
+    (
+        (
+            (
+                (
+                    (
+                        (
+                            (
+                                (
+                                    (
+                                        f"({matchfullmarkup})|"
+                                        + r"(\\footnote(?:\s*"
+                                    )
+                                    + matchmarkup
+                                )
+                                + ")?"
+                            )
+                            + matcharg
+                        )
+                        + ")("
+                    )
+                    + matcharg
+                )
+                + r")?(\s+"
+            )
+            + matchmarkup
+        )
+        + r")(\s+\\default)?"
+    )
+)
 
 @rule((2, 17, 6), r"""\accidentalStyle #'Context "style" -> \accidentalStyle Context.style
 \alterBroken "Context.grob" -> \alterBroken Context.grob
@@ -3605,11 +3645,18 @@ def conv(s):
     def patrep(m):
         def fn_path_replace(m):
             x = ".".join(re.findall(wordsyntax, m.group(2)))
-            if x in ["TimeSignature", "KeySignature", "BarLine",
-                     "Clef", "StaffSymbol", "OttavaBracket",
-                     "LedgerLineSpanner"]:
-                x = "Staff." + x
+            if x in {
+                "TimeSignature",
+                "KeySignature",
+                "BarLine",
+                "Clef",
+                "StaffSymbol",
+                "OttavaBracket",
+                "LedgerLineSpanner",
+            }:
+                x = f"Staff.{x}"
             return m.group(1) + x
+
         if m.group(1):
             return m.group(0)
         x = m.group(2) + m.group(4)
@@ -3711,12 +3758,10 @@ def conv(s):
         stderr_write(NOT_SMART % "#(ly:set-option 'old-relative)")
         stderr_write(UPDATE_MANUALLY)
         raise FatalConversionError()
-    # If the file contains a language switch to a language where the
-    # name of c is not "c", we can't reliably know which parts of the
-    # file will need "c" and which need "do".
-    m = re.search(
-        r'\\language\s(?!\s*#?"(?:nederlands|deutsch|english|norsk|suomi|svenska))"', s)
-    if m:
+    if m := re.search(
+        r'\\language\s(?!\s*#?"(?:nederlands|deutsch|english|norsk|suomi|svenska))"',
+        s,
+    ):
         # Heuristic: if there is a non-commented { before the language
         # selection, we can't be sure.
         # Also if there is any selection of a non-do language.
@@ -3801,9 +3846,8 @@ def conv(s):
     # Match strings, and articulation shorthands that end in -^_
     # so that we leave alone -| in quoted strings and c4--|
     def subnonstring(m):
-        if m.group(1):
-            return m.group(1)+"!"
-        return m.group(0)
+        return f"{m.group(1)}!" if m.group(1) else m.group(0)
+
     s = re.sub(r"([-^_])\||" + matchstring +
                  r"|[-^_][-^_]", subnonstring, s)
     s = re.sub(r"\bdashBar\b", "dashBang", s)
@@ -3834,10 +3878,12 @@ def conv(s):
     def wordreplace(m):
         def instring(m):
             return re.sub(r'["\\]', r'\\\g<0>', repl[m.lastindex-1])
+
         if m.lastindex:
             return repl[m.lastindex-1]
-        return '"' + re.sub(words, instring, m.group(0)[1:-1]) + '"'
-    s = re.sub(words + "|" + matchstring, wordreplace, s)
+        return f'"{re.sub(words, instring, m.group(0)[1:-1])}"'
+
+    s = re.sub(f"{words}|{matchstring}", wordreplace, s)
     return s
 
 
@@ -3930,8 +3976,11 @@ TimeSignature: style = #'() -> style = #'numbered""")
 def conv(s):
     s = re.sub(r'\bimplicitTimeSignatureVisibility\b',
                  'initialTimeSignatureVisibility', s)
-    s = re.sub('(' + before_id + r'[a-g])((?:sharp){1,2}|(?:flat){1,2})'
-                 + after_id, r'\1-\2', s)
+    s = re.sub(
+        (f'({before_id}' + r'[a-g])((?:sharp){1,2}|(?:flat){1,2})' + after_id),
+        r'\1-\2',
+        s,
+    )
     s = re.sub(r"""\\override
                    (\s+)
                    ([a-zA-Z]+\.)?TimeSignature.style
@@ -4335,9 +4384,9 @@ def conv(s):
     # (e.g., \tweak Stem.color \tweak Stem.neutral-direction #DOWN ...
     # should become \once \set suspendMelodyDecisions = ##t \tweak Stem.color ...).
     neutral_dir = r'Stem\.neutral-direction'
-    neutral_dir_override = r"\\override\s+{}\s+=\s+#'\(\)".format(neutral_dir)
+    neutral_dir_override = f"\override\s+{neutral_dir}\s+=\s+#'\(\)"
     melody_engraver = r'\\consists\s+"?Melody_engraver"?'
-    typical_usage = r'({})\s+{}'.format(melody_engraver, neutral_dir_override)
+    typical_usage = f'({melody_engraver})\s+{neutral_dir_override}'
     s = re.sub(typical_usage, r"\1", s)
     if re.search(neutral_dir, s) and re.search('Melody_engraver', s):
         stderr_write(NOT_SMART % _("Stem.neutral-direction with Melody_engraver"))
@@ -4914,10 +4963,10 @@ convert automatically.  Please do the update manually.
             params[keyval.group("key")] = keyval.group("val")
         if "factor" in params:
             fac = params["factor"].split()
-            if (
-                fac != ["(/", "staff-height", "pt", "20)"]
-                and fac != ["(/", "staff-height", "20", "pt)"]
-            ):
+            if fac not in [
+                ["(/", "staff-height", "pt", "20)"],
+                ["(/", "staff-height", "20", "pt)"],
+            ]:
                 stderr_write(NOT_SMART % _("#:factor parameter to set-global-fonts"))
                 stderr_write(set_global_fonts_factor_warning
                              .format(params["factor"]))
@@ -4927,11 +4976,11 @@ convert automatically.  Please do the update manually.
             stderr_write(set_global_fonts_brace_warning)
             stderr_write(UPDATE_MANUALLY)
         for key, val in params.items():
-            if key == "factor" or key == "brace":
+            if key in ["factor", "brace"]:
                 continue
             if not val.startswith('"'):
-                val = "#" + val
-            lines.append(indent + f"fonts.{key} = {val}")
+                val = f"#{val}"
+            lines.append(f"{indent}fonts.{key} = {val}")
         return "\n".join(lines)
 
     define_re = rf"{indent_re}#\(define\s+fonts\s+{set_global_fonts_re}\s*\)"
@@ -4997,14 +5046,14 @@ to convert automatically.  Please do the update manually.
         for family in ("roman", "sans", "typewriter"):
             font = match.group(family)
             if not font.startswith('"'):
-                font = "#" + font
+                font = f"#{font}"
             lines.append(f"{indent}fonts.{family} = {font}")
         factor = match.group("factor").split()
-        if (
-            factor != ["1"]
-            and factor != ["(/", "staff-height", "pt", "20)"]
-            and factor != ["(/", "staff-height", "20", "pt)"]
-        ):
+        if factor not in [
+            ["1"],
+            ["(/", "staff-height", "pt", "20)"],
+            ["(/", "staff-height", "20", "pt)"],
+        ]:
             stderr_write(NOT_SMART % _("factor parameter to make-pango-font-tree"))
             stderr_write(pango_warning.format(match.group("factor")))
             stderr_write(UPDATE_MANUALLY)
@@ -5187,10 +5236,8 @@ should be replaced with
         stderr_write(NOT_SMART % _("gregorian.ly to VaticanaScore"))
         stderr_write(vaticana_score_warning)
         stderr_write(UPDATE_MANUALLY)
-    else:
-        keywords = sorted(set(re.findall(ancient_re, s)))
-        if keywords:
-            stderr_write(gregorian_warning.format(' '.join(keywords)))
+    elif keywords := sorted(set(re.findall(ancient_re, s))):
+        stderr_write(gregorian_warning.format(' '.join(keywords)))
 
     # For \markup \roman
     s = re.sub(r"\\roman\b", r"\\serif", s)
@@ -5231,13 +5278,13 @@ def conv(s):
 
     # "text" could easily be a variable name, try to mitigate possible
     # false positives.
-    if re.search(rf'\\text{NAME_END_RE}', s) and not 'text =' in s:
-       stderr_write(NOT_SMART % r'\text')
-       stderr_write(r"""
+    if re.search(rf'\\text{NAME_END_RE}', s) and 'text =' not in s:
+        stderr_write(NOT_SMART % r'\text')
+        stderr_write(r"""
 The \text markup command has been removed. Instead, use \serif,
 \sans or \typewriter, depending on the desired font style.
 """)
-       stderr_write(UPDATE_MANUALLY)
+        stderr_write(UPDATE_MANUALLY)
 
     return s
 

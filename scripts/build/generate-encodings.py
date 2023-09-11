@@ -883,14 +883,11 @@ def emit_font_directory_entry(encodings, prefix, size):
         print(f"\t/Emmentaler-{size} findfont dup length dict copy begin")
         print(f"\t/Encoding {prefix}{es.suffix}Encoding def")
         print(f"\t/Emmentaler-{size}-{es.suffix} currentdict definefont pop end")
-    print(f"}} if")
+    print("}} if")
 
 
 def emit_scheme_hash(encodings, prefix, func):
-    num_elem = 0
-    for es in encodings:
-        num_elem += len(es.glyphset)
-
+    num_elem = sum(len(es.glyphset) for es in encodings)
     print()
     print(f"(define-public {prefix}-encoding-table (make-hash-table {num_elem}))")
     print(f"(define ({func} k v) (hash-set! {prefix}-encoding-table k v))")

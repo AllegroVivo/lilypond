@@ -69,9 +69,7 @@ def process(filename: str) -> Optional[str]:
     if len(subrel.parts) != 2:
         return str(rel)
     subdir = subrel.parts[0]
-    if rel.stem in keep_paths[subdir]:
-        return str(rel)
-    return None
+    return str(rel) if rel.stem in keep_paths[subdir] else None
 
 
 r = requests.get(f"https://github.com/pygments/pygments/archive/{args.rev}.zip")

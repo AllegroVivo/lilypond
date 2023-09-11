@@ -69,12 +69,7 @@ if __name__ == "__main__":
     api.headers = {"Private-Token": args.token}
 
     files = get_files(args.version)
-    missing = []
-    for file in files:
-        if not os.path.exists(file):
-            missing.append(file)
-
-    if len(missing) > 0:
+    if missing := [file for file in files if not os.path.exists(file)]:
         print("The following files are missing:")
         for file in missing:
             print(f"  - {file}")
@@ -87,5 +82,5 @@ if __name__ == "__main__":
         print(f" * Uploading {file} ...")
         with open(file, "rb") as file_to_upload:
             # Make sure a previously deleted package is made visible again.
-            url = package_url(args.repo, args.version, file) + "?status=default"
+            url = f"{package_url(args.repo, args.version, file)}?status=default"
             api.put(url, data=file_to_upload)

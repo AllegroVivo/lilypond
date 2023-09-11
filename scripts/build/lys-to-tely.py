@@ -111,31 +111,31 @@ prefix = ''
 for opt in options:
     o = opt[0]
     a = opt[1]
-    if o == '-h' or o == '--help':
+    if o in ['-h', '--help']:
         # We can't use vars () inside a function, as that only contains all
         # local variables and none of the global variables! Thus we have to
         # generate the help text here and pass it to the function...
         help(help_text % vars())
-    elif o == '-n' or o == '--name':
+    elif o in ['-n', '--name']:
         name = a
-    elif o == '-o' or o == '--output':
+    elif o in ['-o', '--output']:
         output = a
-    elif o == '-t' or o == '--title':
+    elif o in ['-t', '--title']:
         title = a
-    elif o == '-a' or o == '--author':
+    elif o in ['-a', '--author']:
         author = a
-    elif o == '-i' or o == '--input-filenames':
+    elif o in ['-i', '--input-filenames']:
         input_filename = a
-    elif o == '-p' or o == '--glob-input':
+    elif o in ['-p', '--glob-input']:
         glob_input = a
-    elif o == '-f' or o == '--fragment-options':
+    elif o in ['-f', '--fragment-options']:
         fragment_options = a
     elif o == '--prefix':
         prefix = a
     elif o == '--template':
         template = open(a, 'r', encoding='utf-8').read()
     else:
-        raise Exception('unknown option: ' + o)
+        raise Exception(f'unknown option: {o}')
 
 html_file_re = re.compile(r'.*\.i?html?$')
 info_file_re = re.compile(r'.*\.info$')
@@ -148,21 +148,24 @@ xml_file_re = re.compile(r'.*\.i?(xm|mx)l$')
 def name2line(n):
     if texi_file_re.match(n):
         # We have a texi include file, simply include it:
-        s = r"@include %s" % os.path.basename(n)
+        return f"@include {os.path.basename(n)}"
     elif (html_file_re.match(n) or info_file_re.match(n)
           or pdf_file_re.match(n) or tex_file_re.match(n)):
-        s = r"""
+        return r"""
 @ifhtml
 @html
 <a href="%s">%s</a>
 <br/>
 @end html
 @end ifhtml
-""" % (os.path.basename(n), os.path.basename(n))
+""" % (
+            os.path.basename(n),
+            os.path.basename(n),
+        )
 
     elif xml_file_re.match(n):
         # Assume it's a MusicXML file -> convert, create image etc.
-        s = r"""
+        return r"""
 @ifhtml
 @html
 <a name="%s"></a>
@@ -170,11 +173,15 @@ def name2line(n):
 @end ifhtml
 
 @musicxmlfile[%s]{%s}
-""" % (os.path.basename(n), fragment_options, prefix + n)
+""" % (
+            os.path.basename(n),
+            fragment_options,
+            prefix + n,
+        )
 
     else:
         # Assume it's a lilypond file -> create image etc.
-        s = r"""
+        return r"""
 @ifhtml
 @html
 <a name="%s"></a>
@@ -182,8 +189,11 @@ def name2line(n):
 @end ifhtml
 
 @lilypondfile[%s]{%s}
-""" % (os.path.basename(n), fragment_options, prefix + n)
-    return s
+""" % (
+            os.path.basename(n),
+            fragment_options,
+            prefix + n,
+        )
 
 
 if glob_input:
@@ -195,9 +205,8 @@ if files:
     template = template % vars()
     s = "\n".join(map(name2line, files))
     s = template.replace(include_snippets, s, 1)
-    h = open(output, "w", encoding="utf8")
-    h.write(s)
-    h.close()
+    with open(output, "w", encoding="utf8") as h:
+        h.write(s)
 else:
     # not Unix philosophy, but hey, at least we notice when
     # we don't distribute any .ly files.

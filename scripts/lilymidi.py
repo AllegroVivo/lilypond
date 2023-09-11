@@ -38,7 +38,7 @@ def process_options(args):
                       help="just dump parsed contents of the MIDI file")
     parser.add_option('', '--pretty', action='store_true', dest='pretty',
                       help="dump parsed contents of the MIDI file in human-readable form (implies --dump)")
-    parser.usage = parser.usage + " FILE"
+    parser.usage = f"{parser.usage} FILE"
     options, args = parser.parse_args(args)
     if len(args) != 1:
         parser.print_help()
@@ -102,12 +102,8 @@ class time_signature_formatter (formatter):
         # if there are more notated 32nd notes per midi quarter than 8,
         # we display a fraction smaller than 1 as scale factor.
         r = Fraction(8, ord(val2[3]))
-        if r == 1:
-            ratio = ""
-        else:
-            ratio = " *" + str(r)
-        return str(ord(val2[0])) + "/" + str(1 << ord(val2[1])) + ratio \
-            + ", metronome " + str(Fraction(ord(val2[2]), 96))
+        ratio = "" if r == 1 else f" *{str(r)}"
+        return f"{ord(val2[0])}/{str(1 << ord(val2[1]))}{ratio}, metronome {str(Fraction(ord(val2[2]), 96))}"
 
 
 class key_signature_formatter (formatter):
@@ -124,8 +120,7 @@ class channel_formatter (formatter):
         self.channel = ch
 
     def format(self, val1, val2=""):
-        return self.text + "Channel " + str(self.channel) + ", " + \
-            self.format_vals(val1, val2)
+        return f"{self.text}Channel {str(self.channel)}, {self.format_vals(val1, val2)}"
 
 
 class control_mode_formatter (formatter):
@@ -151,7 +146,7 @@ class note_formatter (channel_formatter):
 
     def format_vals(self, val1, val2):
         if val2 > 0:
-            return self.pitch(val1) + '@' + self.velocity(val2)
+            return f'{self.pitch(val1)}@{self.velocity(val2)}'
         return self.pitch(val1)
 
 
@@ -180,10 +175,7 @@ def dump_event(ev, time, padding):
     if func == 0x80:
         f = note_formatter("Note off: ", ch)
     elif func == 0x90:
-        if ev[2] == 0:
-            desc = "Note off: "
-        else:
-            desc = "Note on: "
+        desc = "Note off: " if ev[2] == 0 else "Note on: "
         f = note_formatter(desc, ch)
     elif func == 0xA0:
         f = note_formatter("Polyphonic aftertouch: ",
@@ -205,7 +197,7 @@ def dump_event(ev, time, padding):
         else:
             print(padding + f.format())
     else:
-        print(padding + "Unrecognized MIDI event: " + str(ev))
+        print(f"{padding}Unrecognized MIDI event: {str(ev)}")
 
 
 def dump_midi(data, midi_file, options):
@@ -213,25 +205,23 @@ def dump_midi(data, midi_file, options):
         print(data)
         return
     # First, dump general info, #tracks, etc.
-    print("Filename:     " + midi_file)
+    print(f"Filename:     {midi_file}")
     i = data[0]
     m_formats = {0: 'single multi-channel track',
                  1: "one or more simultaneous tracks",
                  2: "one or more sequentially independent single-track patterns"}
-    print("MIDI format:  " + str(i[0]) + " (" + m_formats.get(i[0], "") + ")")
-    print("Divisions:    " + str(i[1]) + " per whole note")
-    print("#Tracks:      " + str(len(data[1])))
-    n = 0
-    for tr in data[1]:
+    print(f"MIDI format:  {str(i[0])} (" + m_formats.get(i[0], "") + ")")
+    print(f"Divisions:    {str(i[1])} per whole note")
+    print(f"#Tracks:      {len(data[1])}")
+    for n, tr in enumerate(data[1], start=1):
         time = 0
-        n += 1
         print()
-        print("Track " + str(n) + ":")
+        print(f"Track {str(n)}:")
         print("    Time 0:")
         for ev in tr:
             if ev[0] > time:
                 time = ev[0]
-                print("    Time " + str(time) + ": ")
+                print(f"    Time {str(time)}: ")
             dump_event(ev[1], time, "        ")
 
 
@@ -245,10 +235,9 @@ def go():
     elif options.regexp:
         import re
         regexp = re.compile(options.regexp)
-        numbers = [str(n+1) for n, name in info if regexp.search(name)]
-        if numbers:
+        if numbers := [str(n + 1) for n, name in info if regexp.search(name)]:
             if options.prefix:
-                sys.stdout.write('%s ' % (options.prefix,))
+                sys.stdout.write(f'{options.prefix} ')
             sys.stdout.write(','.join(numbers))
             sys.stdout.write('\n')
     else:

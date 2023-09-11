@@ -34,18 +34,15 @@ parser.add_argument("--description", help="file with description for release")
 parser.add_argument("version", help="of the release")
 args = parser.parse_args()
 
-links: List[Dict[str, str]] = []
-# In reverse order because the most recently uploaded files are shown first.
-for file in reversed(get_files(args.version)):
-    links.append(
-        {
-            "name": file,
-            "url": package_url(args.repo, args.version, file),
-            "filepath": f"/{file}",
-            "link_type": "package",
-        }
-    )
-
+links: List[Dict[str, str]] = [
+    {
+        "name": file,
+        "url": package_url(args.repo, args.version, file),
+        "filepath": f"/{file}",
+        "link_type": "package",
+    }
+    for file in reversed(get_files(args.version))
+]
 release = {
     "name": f"LilyPond {args.version}",
     "tag_name": f"v{args.version}",

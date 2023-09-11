@@ -305,17 +305,19 @@ def add_feature_kern(font):
             if (not (lsb_factors[left] or lsb_factors[right])):
                 continue
 
-            if (not (left == "four" or left == "seven"
-                     or right == "four" or right == "seven")):
+            if (
+                left != "four"
+                and left != "seven"
+                and right != "four"
+                and right != "seven"
+            ):
                 continue
 
             if (left, right) in kerning:
                 kern_val = kerning[(left, right)]
 
-                left_suffix = ".alt" \
-                    if (left == "four" or left == "seven") else ""
-                right_suffix = ".alt" \
-                    if (right == "four" or right == "seven") else ""
+                left_suffix = ".alt" if left in ["four", "seven"] else ""
+                right_suffix = ".alt" if right in ["four", "seven"] else ""
 
                 kern(left + left_suffix, right + right_suffix, kern_val)
 
@@ -373,11 +375,7 @@ def add_feature_kern(font):
             if (not (lsb_factors[left] or lsb_factors[right])):
                 continue
 
-            if (left, right) in kerning:
-                kern_val = kerning[(left, right)]
-            else:
-                kern_val = 0
-
+            kern_val = kerning[(left, right)] if (left, right) in kerning else 0
             correction = rsb(left) + lsb(right)
             figbass_kern = kern_val - correction
             if (figbass_kern == 0.0):
