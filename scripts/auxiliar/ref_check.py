@@ -69,11 +69,17 @@ class CrossRefs:
             returnCode = 1
             print("nodeName: ", nodeName, " in ",
                   fileName, " contains backslash")
-        if manualName+"/"+nodeName in list(self.Nodes.keys()):
-            print("Error: Duplicate nodename ", nodeName, " in ",
-                  fileName, " and ", self.Nodes[manualName+"/"+nodeName][1])
+        if f"{manualName}/{nodeName}" in list(self.Nodes.keys()):
+            print(
+                "Error: Duplicate nodename ",
+                nodeName,
+                " in ",
+                fileName,
+                " and ",
+                self.Nodes[f"{manualName}/{nodeName}"][1],
+            )
             returnCode = 1
-        self.Nodes[manualName + "/" + nodeName] = [manualName, fileName]
+        self.Nodes[f"{manualName}/{nodeName}"] = [manualName, fileName]
         self.nodeNames[nodeName] = fileName
 
     def addRef(self, toManualName, toHeading, inFileName):
@@ -84,7 +90,7 @@ class CrossRefs:
                   inFileName, " contains backslash")
 #    if inFileName == "notation/vocal.itely":
 #      print "Ref to ", toManualName, "/",toHeading, " found in ", inFileName
-        self.Refs.append([toManualName + "/" + toHeading, inFileName])
+        self.Refs.append([f"{toManualName}/{toHeading}", inFileName])
 
     def check(self):
         noErrors = True
@@ -133,12 +139,10 @@ class File:
                   File.CurrentManualName, " but not found")
             return
         remainderLine = ""
-        lineNo = 0
-        for line in myfile:
-            lineNo += 1
+        for lineNo, line in enumerate(myfile, start=1):
             words = line.split()
             if len(words) > 0:
-                if words[0] == "@ignore" or words[0] == "@macro":
+                if words[0] in ["@ignore", "@macro"]:
                     skip = True
                 if skip and len(words) > 1:
                     if words[0] == "@end" and (words[1].find("ignore") >= 0 or words[1].find("macro") >= 0):
@@ -179,7 +183,7 @@ class File:
 
                     # Find references
 
-                    twoLines = remainderLine + ' ' + line.strip()
+                    twoLines = f'{remainderLine} {line.strip()}'
                     manualRefStrings = crossRefs.getRefManuals()
                     refFound = False
                     for manualRefString in manualRefStrings:
@@ -187,7 +191,7 @@ class File:
                         actualToManualName = toManualName
                         if toManualName == "this":
                             toManualName = File.CurrentManualName
-                        refString = "@" + manualRefString + "{"
+                        refString = f"@{manualRefString}" + "{"
                         refStart = twoLines.find(refString)
                         if refStart >= 0:
                             refFound = True

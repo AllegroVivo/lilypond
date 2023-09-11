@@ -67,10 +67,10 @@ def call_festival(scheme_code):
     p.stdin.close()
     answer = ''
     while True:
-        process_output = p.stdout.read()
-        if not process_output:
+        if process_output := p.stdout.read():
+            answer = answer + process_output
+        else:
             break
-        answer = answer + process_output
     return answer
 
 
@@ -131,33 +131,38 @@ def process_xml_file(file_name, voice, speedup, play_program):
             decode = codecs.getdecoder('utf-8')
             encode = codecs.getencoder(coding)
         input = open(file_name, encoding='utf-8')
-        output = open(xml_temp_file, 'w', encoding='utf-8')
-        while True:
-            data = input.read()
-            if not data:
-                break
-            if recodep:
-                data = encode(decode(data)[0])[0]
-            output.write(data)
-        output.close()
+        with open(xml_temp_file, 'w', encoding='utf-8') as output:
+            while True:
+                data = input.read()
+                if not data:
+                    break
+                if recodep:
+                    data = encode(decode(data)[0])[0]
+                output.write(data)
         # synthesize
-        wav_file = file_name[:-3] + 'wav'
+        wav_file = f'{file_name[:-3]}wav'
         if speedup:
             _, wav_temp_file = tempfile.mkstemp('.wav')
         else:
             wav_temp_file = wav_file
         try:
-            print("text2wave -eval '(%s)' -mode singing '%s' -o '%s'" %
-                  (voice, xml_temp_file, wav_temp_file,))
-            result = os.system("text2wave -eval '(%s)' -mode singing '%s' -o '%s'" %
-                               (voice, xml_temp_file, wav_temp_file,))
-            if result:
+            print(
+                f"text2wave -eval '({voice})' -mode singing '{xml_temp_file}' -o '{wav_temp_file}'"
+            )
+            if result := os.system(
+                f"text2wave -eval '({voice})' -mode singing '{xml_temp_file}' -o '{wav_temp_file}'"
+            ):
                 sys.stdout.write("Festival processing failed.\n")
                 return
             if speedup:
-                result = os.system("sox '%s' '%s' speed '%f'" %
-                                   (wav_temp_file, wav_file, speedup,))
-                if result:
+                if result := os.system(
+                    "sox '%s' '%s' speed '%f'"
+                    % (
+                        wav_temp_file,
+                        wav_file,
+                        speedup,
+                    )
+                ):
                     sys.stdout.write("Festival processing failed.\n")
                     return
         finally:
@@ -169,7 +174,7 @@ def process_xml_file(file_name, voice, speedup, play_program):
         sys.stdout.write("%s created.\n" % (wav_file,))
         # play
         if play_program:
-            os.system("%s '%s' >/dev/null" % (play_program, wav_file,))
+            os.system(f"{play_program} '{wav_file}' >/dev/null")
     finally:
         try:
             os.delete(xml_temp_file)
@@ -178,8 +183,7 @@ def process_xml_file(file_name, voice, speedup, play_program):
 
 
 def process_ly_file(file_name, voice):
-    result = os.system("lilypond '%s'" % (file_name,))
-    if result:
+    if result := os.system(f"lilypond '{file_name}'"):
         return
     xml_file = None
     for f in os.listdir(os.path.dirname(file_name) or '.'):

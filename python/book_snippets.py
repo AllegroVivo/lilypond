@@ -165,17 +165,14 @@ def classic_lilypond_book_compatibility(key, value):
     if key == 'singleline' and value is None:
         return (RAGGED_RIGHT, None)
 
-    m = re.search(r'relative\s*([-0-9])', key)
-    if m:
+    if m := re.search(r'relative\s*([-0-9])', key):
         return ('relative', m.group(1))
 
-    m = re.match('([0-9]+)pt', key)
-    if m:
+    if m := re.match('([0-9]+)pt', key):
         return ('staffsize', m.group(1))
 
-    if (key == 'indent' or key == 'line-width') and value:
-        m = re.match('([-.0-9]+)(cm|in|mm|pt|bp|staffspace)', value)
-        if m:
+    if key in ['indent', 'line-width'] and value:
+        if m := re.match('([-.0-9]+)(cm|in|mm|pt|bp|staffspace)', value):
             f = float(m.group(1))
             return (key, '%f\\%s' % (f, m.group(2)))
 
@@ -245,8 +242,7 @@ FRAGMENT_LY = r'''
 def ps_page_count(ps_name):
     # Open .ps file in binary mode, it might contain embedded fonts.
     header = open(ps_name, 'rb').read(1024)
-    m = re.search(b'\n%%Pages: ([0-9]+)', header)
-    if m:
+    if m := re.search(b'\n%%Pages: ([0-9]+)', header):
         return int(m.group(1))
     return 0
 
@@ -335,7 +331,7 @@ class Snippet (Chunk):
         return self.match.group(s)
 
     def __repr__(self):
-        return repr(self.__class__) + ' type = ' + self.type
+        return f'{repr(self.__class__)} type = {self.type}'
 
 
 class IncludeSnippet (Snippet):
@@ -391,7 +387,7 @@ class LilypondSnippet (Snippet):
 
     def verb_ly(self):
         verb_text = self.substring('code')
-        if not NOGETTEXT in self.option_dict:
+        if NOGETTEXT not in self.option_dict:
             verb_text = self.verb_ly_gettext(verb_text)
         if not verb_text.endswith('\n'):
             verb_text += '\n'
@@ -403,10 +399,7 @@ class LilypondSnippet (Snippet):
                 % (self.line_number - 1, contents))
 
     def full_ly(self):
-        s = self.ly()
-        if s:
-            return self.compose_ly(s)
-        return ''
+        return self.compose_ly(s) if (s := self.ly()) else ''
 
     def split_options(self, option_string):
         return self.formatter.split_snippet_options(option_string)
@@ -447,7 +440,8 @@ class LilypondSnippet (Snippet):
 
         if PAPERSIZE in self.snippet_option_dict:
             self.snippet_option_dict[PAPERSIZE] = (
-                '"' + self.snippet_option_dict[PAPERSIZE] + '"')
+                f'"{self.snippet_option_dict[PAPERSIZE]}' + '"'
+            )
 
         # If we have an explicit paper width or height, use it,
         # overriding a `papersize` option.  If either width or height
@@ -461,8 +455,7 @@ class LilypondSnippet (Snippet):
                 self.snippet_option_dict[PAPER_WIDTH] = r'210\mm'
 
             wd = self.snippet_option_dict[PAPER_WIDTH]
-            m = re.match(ly_dimen_re, wd)
-            if m:
+            if m := re.match(ly_dimen_re, wd):
                 (w, w_unit) = m.group(1, 2)
             else:
                 ly.warning(_("ignoring invalid option %s=%s")
@@ -471,8 +464,7 @@ class LilypondSnippet (Snippet):
                 (w, w_unit) = ("210", "mm")
 
             ht = self.snippet_option_dict[PAPER_HEIGHT]
-            m = re.match(ly_dimen_re, ht)
-            if m:
+            if m := re.match(ly_dimen_re, ht):
                 (h, h_unit) = m.group(1, 2)
             else:
                 ly.warning(_("ignoring invalid option %s=%s")

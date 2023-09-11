@@ -171,10 +171,10 @@ def get_option_parser():
 
 
 def str_to_tuple(s):
-    return tuple([int(n) for n in s.split('.')])
+    return tuple(int(n) for n in s.split('.'))
 
 def tup_to_str(t):
-    return '.'.join(['%s' % x for x in t])
+    return '.'.join([f'{x}' for x in t])
 
 def latest_version():
     return convertrules.conversions[-1][0]
@@ -204,12 +204,11 @@ string and the number of errors."""
                 from textwrap import indent
                 ly.progress(tup_to_str(x[0]))
                 ly.progress(indent(x[2].strip(), '  '))
+            elif x == conv_list[-1]:
+                ly.progress(tup_to_str(x[0]))
             else:
-                if x != conv_list[-1]:
-                    ly.progress(tup_to_str(x[0]), newline=False)
-                    ly.progress(', ', newline=False)
-                else:
-                    ly.progress(tup_to_str(x[0]))
+                ly.progress(tup_to_str(x[0]), newline=False)
+                ly.progress(', ', newline=False)
             newstr = x[1](s)
             last_conversion = x[0]
             if newstr != s:
@@ -232,8 +231,7 @@ def guess_lilypond_version(input):
     # within stable releases, as the syntax doesn't change.
     if m and (m.group(3) is not None or int(m.group(2))%2 == 0):
         return m.group(1)
-    m = lilypond_version_re.search(input)
-    if m:
+    if m := lilypond_version_re.search(input):
         raise InvalidVersion(m.group(1))
     else:
         return ''
@@ -257,11 +255,11 @@ def back_up(file, numbered):
         n = 0
         while True:
             n = n + 1
-            back_up = file + '.~' + str(n) + '~'
+            back_up = f'{file}.~{str(n)}~'
             if not os.path.exists(back_up):
                 break
     else:
-        back_up = file + '~'
+        back_up = f'{file}~'
     shutil.copy2(file, back_up)
     return back_up
 
@@ -270,10 +268,8 @@ def do_one_file(infile_name):
     ly.progress(_("Processing `%s\'... ") % infile_name, True)
 
     if infile_name:
-        infile = open(infile_name, 'rb')
-        original = infile.read()
-        infile.close()
-
+        with open(infile_name, 'rb') as infile:
+            original = infile.read()
         # Cope early with encoding change in 2.5.13: Try UTF-8 and attempt
         # conversion from latin1 if that fails.
         try:

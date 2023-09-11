@@ -117,7 +117,7 @@ if program_version.startswith("@"):
 
 
 def identify():
-    progress('%s (GNU LilyPond) %s' % (ly.program_name, program_version))
+    progress(f'{ly.program_name} (GNU LilyPond) {program_version}')
 
 
 def warranty():
@@ -366,7 +366,7 @@ def system_in_directory(cmd_str, directory, log_file):
 
     output_location = None
     if global_options.redirect_output:
-        output_location = open(log_file + '.log', 'w', encoding='utf-8')
+        output_location = open(f'{log_file}.log', 'w', encoding='utf-8')
 
     try:
         subprocess.run(cmd_str, stdout=output_location,
@@ -391,10 +391,10 @@ def process_snippets(cmd, outdated_dict,
     lily_output_dir = global_options.lily_output_dir
 
     # Write list of snippet names.
-    snippet_names_file = 'snippet-names-%s.ly' % checksum
+    snippet_names_file = f'snippet-names-{checksum}.ly'
     snippet_names_path = os.path.join(lily_output_dir, snippet_names_file)
     with open(snippet_names_path, 'w', encoding='utf-8') as snippet_names:
-        snippet_names.write('\n'.join([name + '.ly' for name in basenames]))
+        snippet_names.write('\n'.join([f'{name}.ly' for name in basenames]))
 
     # Run command.
     cmd = formatter.adjust_snippet_command(cmd)
@@ -445,15 +445,10 @@ def do_process_cmd(chunks, options):
 
 def do_process_cmd_locked(snippets, options):
     """Look at all snippets, write the outdated ones, and compile them."""
-    outdated = [c for c in snippets if c.is_outdated(options.lily_output_dir)]
-
-    if outdated:
-        # First unique the list based on the basename, by using them as keys
-        # in a dict.
-        outdated_dict = dict()
-        for snippet in outdated:
-            outdated_dict[snippet.basename()] = snippet
-
+    if outdated := [
+        c for c in snippets if c.is_outdated(options.lily_output_dir)
+    ]:
+        outdated_dict = {snippet.basename(): snippet for snippet in outdated}
         # Next call write_ly() for each snippet once.
         progress(_("Writing snippets..."))
         for snippet in outdated_dict.values():
@@ -482,7 +477,7 @@ def guess_format(input_filename):
     for formatter in book_base.all_formats:
         if formatter.can_handle_extension(e):
             return formatter
-    error(_("cannot determine format for: %s" % input_filename))
+    error(_(f"cannot determine format for: {input_filename}"))
     exit(1)
 
 def write_if_updated(file_name, lines):
@@ -644,13 +639,13 @@ def mkarg(x):
     and escapes the characters \, $, ", and ` for unix shells.
     """
     if os.name == 'nt':
-        return ' "%s"' % x
+        return f' "{x}"'
     s = ' "'
     for c in x:
         if c in '\\$"`':
             s = s + '\\'
         s = s + c
-    s = s + '"'
+    s = f'{s}"'
     return s
 
 
@@ -661,11 +656,7 @@ def write_output_documents(chunks: typing.List[book_snippets.Chunk], is_filter: 
         if path not in text_by_path:
             text_by_path[path] = []
 
-        if is_filter:
-            s = ch.filter_text()
-        else:
-            s = ch.replacement_text()
-
+        s = ch.filter_text() if is_filter else ch.replacement_text()
         text_by_path[path].append(s)
 
     for path in text_by_path:
@@ -694,19 +685,19 @@ def main():
     formats = global_options.formatter.image_formats
 
     if global_options.process_cmd == '':
-        global_options.process_cmd = (
-            lilypond_binary + ' --formats=%s ' % formats)
+        global_options.process_cmd = f'{lilypond_binary} --formats={formats} '
 
     global_options.process_cmd += (
-        ' '.join([' -I %s' % mkarg(p) for p in global_options.include_path])
-        + ' -daux-files ')
+        ' '.join([f' -I {mkarg(p)}' for p in global_options.include_path])
+        + ' -daux-files '
+    )
 
     global_options.formatter.process_options(global_options)
 
     if global_options.lily_loglevel:
         ly.debug_output(_("Setting LilyPond's loglevel to %s") %
                         global_options.lily_loglevel, True)
-        global_options.process_cmd += " --loglevel=%s" % global_options.lily_loglevel
+        global_options.process_cmd += f" --loglevel={global_options.lily_loglevel}"
     elif ly.is_verbose():
         if os.environ.get("LILYPOND_LOGLEVEL", None):
             ly.debug_output(_("Setting LilyPond's loglevel to %s (from environment variable LILYPOND_LOGLEVEL)") %
@@ -752,7 +743,7 @@ def main():
     inputs.pop()
 
     base_file_name = os.path.splitext(os.path.basename(files[0]))[0]
-    dep_file = os.path.join(global_options.output_dir, base_file_name + '.dep')
+    dep_file = os.path.join(global_options.output_dir, f'{base_file_name}.dep')
     final_output_file = os.path.join(relative_output_dir,
                                      base_file_name + global_options.formatter.default_extension)
     open(dep_file, 'w', encoding='utf-8').write('%s: %s\n'

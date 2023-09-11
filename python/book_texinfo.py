@@ -200,16 +200,9 @@ dummy
 
 
 def get_texinfo_width_indent(source, global_options):
-    # TODO: Check for end of header command "@c %**end of header"
-    #      only use material before that comment ?
-
-    # extract all relevant papter settings from the input:
-    pagesize = None
     texinfo_paper_size_regexp = r'''(@(?:afourpaper|afourwide|afourlatex|afivepaper|smallbook|letterpaper))'''
     m = re.search(texinfo_paper_size_regexp, source)
-    if m:
-        pagesize = m.group(1)
-
+    pagesize = m.group(1) if m else None
     relevant_settings_regexp = r'''(@(?:fonttextsize|pagesizes|cropmarks|exampleindent).*)\n'''
     m = re.findall(relevant_settings_regexp, source)
     if pagesize:
@@ -220,12 +213,10 @@ def get_texinfo_width_indent(source, global_options):
     texinfo_document = TEXINFO_INSPECTION_DOCUMENT % {'preamble': preamble}
 
     (handle, tmpfile) = tempfile.mkstemp('.texi')
-    outfile = os.path.splitext(tmpfile)[0] + '.pdf'
+    outfile = f'{os.path.splitext(tmpfile)[0]}.pdf'
 
-    tmp_handle = open(handle, 'w', encoding='utf-8')
-    tmp_handle.write(texinfo_document)
-    tmp_handle.close()
-
+    with open(handle, 'w', encoding='utf-8') as tmp_handle:
+        tmp_handle.write(texinfo_document)
     # Work around a texi2pdf bug: if LANG=C is not given, a broken regexp is
     # used to detect relative/absolute paths, so the absolute path is not
     # detected as such and this command fails:
@@ -233,8 +224,7 @@ def get_texinfo_width_indent(source, global_options):
         _("Running texi2pdf on file %s to detect default page settings.\n") % tmpfile)
 
     # execute the command and pipe stdout to the parameter_string:
-    cmd = '%s -c -o %s %s' % (
-        global_options.texinfo_program, outfile, tmpfile)
+    cmd = f'{global_options.texinfo_program} -c -o {outfile} {tmpfile}'
     ly.debug_output("Executing: %s\n" % cmd)
     run_env = os.environ.copy()
     run_env['LC_ALL'] = 'C'
@@ -249,7 +239,7 @@ def get_texinfo_width_indent(source, global_options):
         output_dir = tempfile.mkdtemp()
         output_filename = os.path.join(output_dir, 'output.txt')
         # call command
-        cmd += " > %s" % output_filename
+        cmd += f" > {output_filename}"
         returncode = os.system(cmd)
         parameter_string = open(output_filename, encoding="utf8").read()
         if returncode != 0:
@@ -274,8 +264,7 @@ def get_texinfo_width_indent(source, global_options):
     # Find textwidth and exampleindent and format it as \\mm or \\in
     # Use defaults if they cannot be extracted
     textwidth = 0
-    m = re.search('textwidth=([0-9.]+)pt', parameter_string)
-    if m:
+    if m := re.search('textwidth=([0-9.]+)pt', parameter_string):
         val = float(m.group(1))/72.27
         if pagesize and pagesize.startswith("@afour"):
             textwidth = "%g\\mm" % round(val*25.4, 3)
@@ -285,8 +274,7 @@ def get_texinfo_width_indent(source, global_options):
         textwidth = texinfo_line_widths.get(pagesize, "6\\in")
 
     exampleindent = 0
-    m = re.search('exampleindent=([0-9.]+)pt', parameter_string)
-    if m:
+    if m := re.search('exampleindent=([0-9.]+)pt', parameter_string):
         val = float(m.group(1))/72.27
         if pagesize and pagesize.startswith("@afour"):
             exampleindent = "%g\\mm" % round(val*25.4, 3)
@@ -323,10 +311,7 @@ class BookTexinfoOutputFormat (book_base.BookOutputFormat):
 
     def get_document_language(self, source):
         m = texinfo_lang_re.search(source)
-        if m and not m.group(1).startswith('en'):
-            return m.group(1)
-        else:
-            return ''
+        return m.group(1) if m and not m.group(1).startswith('en') else ''
 
     def init_default_snippet_options(self, source):
         texinfo_defaults = get_texinfo_width_indent(
@@ -344,7 +329,7 @@ class BookTexinfoOutputFormat (book_base.BookOutputFormat):
             if not self.global_options.skip_png_check:
                 formats.append('png')
 
-            cmd += ' -dtall-page-formats=%s ' % ','.join(formats)
+            cmd += f" -dtall-page-formats={','.join(formats)} "
         return cmd
 
     def output_info(self, basename, snippet):
@@ -381,14 +366,12 @@ class BookTexinfoOutputFormat (book_base.BookOutputFormat):
     def snippet_output(self, basename, snippet):
         def find(fn):
             p = os.path.join(self.global_options.output_dir, fn)
-            if os.path.exists(p):
-                return p
-            return ''
+            return p if os.path.exists(p) else ''
 
         s = ''
         base = basename
         if book_snippets.DOCTITLE in snippet.option_dict:
-            doctitle = base + '.doctitle'
+            doctitle = f'{base}.doctitle'
             translated_doctitle = doctitle + self.document_language
             for t in [translated_doctitle,  doctitle]:
                 fullpath = find(t)
@@ -399,7 +382,7 @@ class BookTexinfoOutputFormat (book_base.BookOutputFormat):
                     break
 
         if book_snippets.TEXIDOC in snippet.option_dict:
-            texidoc = base + '.texidoc'
+            texidoc = f'{base}.texidoc'
             translated_texidoc = texidoc + self.document_language
             for t in [translated_texidoc, texidoc]:
                 fullpath = find(t)

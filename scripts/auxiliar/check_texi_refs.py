@@ -131,7 +131,7 @@ if options.interactive:
     def yes_prompt(question, default=False, retries=3):
         d = {True: 'y', False: 'n'}.get(default, False)
         while retries:
-            a = input('%s [default: %s]' % (question, d) + '\n')
+            a = input(f'{question} [default: {d}]' + '\n')
             if a.lower().startswith('y'):
                 return True
             if a.lower().startswith('n'):
@@ -263,30 +263,29 @@ which contain string indices of start and end of each comment.
 Included files that can be found in the include path are processed too.
 
 """
-    d = {}
-    d['nodes'] = {}
-    d['contents'] = {}
-    d['newline_indices'] = {}
-    d['comments_boundaries'] = {}
+    d = {
+        'nodes': {},
+        'contents': {},
+        'newline_indices': {},
+        'comments_boundaries': {},
+    }
     manual = references_dict.get(name, '')
     try:
-        f = find_file(name + '.tely')
+        f = find_file(f'{name}.tely')
     except EnvironmentError as xxx_todo_changeme2:
         (errno, strerror) = xxx_todo_changeme2.args
-        if not strerror == file_not_found:
+        if strerror != file_not_found:
             raise
-        else:
-            try:
-                f = find_file(name + '.texi')
-            except EnvironmentError as xxx_todo_changeme1:
-                (errno, strerror) = xxx_todo_changeme1.args
-                if strerror == file_not_found:
-                    sys.stderr.write(name + '.{texi,tely}: ' +
-                                     file_not_found + '\n')
-                    return (manual, d)
-                else:
-                    raise
+        try:
+            f = find_file(f'{name}.texi')
+        except EnvironmentError as xxx_todo_changeme1:
+            (errno, strerror) = xxx_todo_changeme1.args
+            if strerror != file_not_found:
+                raise
 
+            sys.stderr.write(name + '.{texi,tely}: ' +
+                             file_not_found + '\n')
+            return (manual, d)
     log.write("Processing manual %s (%s)\n" % (f, manual))
     read_file(f, d)
     return (manual, d)
@@ -307,11 +306,11 @@ def add_fix(old_type, old_ref, new_type, new_ref):
 
 
 def lookup_fix(r):
-    found = []
-    for (old_type, old_ref, new_type, new_ref) in ref_fixes:
-        if r == old_ref:
-            found.append((new_type, new_ref))
-    return found
+    return [
+        (new_type, new_ref)
+        for old_type, old_ref, new_type, new_ref in ref_fixes
+        if r == old_ref
+    ]
 
 
 def preserve_linebreak(text, linebroken):
@@ -330,8 +329,15 @@ def choose_in_numbered_list(message, string_list, sep=' ', retries=3):
     S = set(string_list)
     S.discard('')
     string_list = list(S)
-    numbered_list = sep.join([str(j + 1) + '. ' + string_list[j]
-                              for j in range(len(string_list))]) + '\n'
+    numbered_list = (
+        sep.join(
+            [
+                f'{str(j + 1)}. {string_list[j]}'
+                for j in range(len(string_list))
+            ]
+        )
+        + '\n'
+    )
     t = retries
     while t > 0:
         value = ''

@@ -212,8 +212,8 @@ def get_latex_textwidth(source, global_options):
     (handle, tmpfile) = tempfile.mkstemp('.tex')
     tmpfileroot = os.path.splitext(tmpfile)[0]
     tmpfileroot = os.path.split(tmpfileroot)[1]
-    auxfile = tmpfileroot + '.aux'
-    logfile = tmpfileroot + '.log'
+    auxfile = f'{tmpfileroot}.aux'
+    logfile = f'{tmpfileroot}.log'
 
     tmp_handle = os.fdopen(handle, 'w')
     tmp_handle.write(latex_document)
@@ -221,7 +221,7 @@ def get_latex_textwidth(source, global_options):
 
     ly.progress(_("Running `%s' on file `%s' to detect default page settings.\n")
              % (global_options.latex_program, tmpfile))
-    cmd = '%s %s' % (global_options.latex_program, tmpfile)
+    cmd = f'{global_options.latex_program} {tmpfile}'
     ly.debug_output("Executing: %s\n" % cmd)
     run_env = os.environ.copy()
     run_env['LC_ALL'] = 'C'
@@ -239,7 +239,7 @@ def get_latex_textwidth(source, global_options):
         output_dir = tempfile.mkdtemp()
         output_filename = os.path.join(output_dir, 'output.txt')
         # call command
-        cmd += " > %s" % output_filename
+        cmd += f" > {output_filename}"
         oldtexinputs = os.environ.get('TEXINPUTS')
         os.environ['TEXINPUTS'] = run_env['TEXINPUTS']
         returncode = os.system(cmd)
@@ -270,16 +270,10 @@ def get_latex_textwidth(source, global_options):
         parameter_string = open(logfile, encoding="utf8").read()
         os.unlink(logfile)
 
-    columns = 0
     m = re.search('columns=([0-9.]+)', parameter_string)
-    if m:
-        columns = int(m.group(1))
-
-    columnsep = 0
+    columns = int(m.group(1)) if m else 0
     m = re.search('columnsep=([0-9.]+)pt', parameter_string)
-    if m:
-        columnsep = float(m.group(1))
-
+    columnsep = float(m.group(1)) if m else 0
     m = re.search('textwidth=([0-9.]+)pt', parameter_string)
     if m:
         textwidth = float(m.group(1))
@@ -288,14 +282,14 @@ def get_latex_textwidth(source, global_options):
         return textwidth
 
     ly.debug_output('Detected values:')
-    ly.debug_output('  columns = %s' % columns)
-    ly.debug_output('  columnsep = %s' % columnsep)
-    ly.debug_output('  textwidth = %s' % textwidth)
+    ly.debug_output(f'  columns = {columns}')
+    ly.debug_output(f'  columnsep = {columnsep}')
+    ly.debug_output(f'  textwidth = {textwidth}')
 
     if m and columns:
         textwidth = (textwidth - columnsep) / columns
         ly.debug_output('Adjusted value:')
-        ly.debug_output('  textwidth = %s' % textwidth)
+        ly.debug_output(f'  textwidth = {textwidth}')
 
     return textwidth
 
@@ -372,11 +366,6 @@ class BookLatexOutputFormat (book_base.BookOutputFormat):
         else:
             rep['vshift'] = snippet.option_dict[book_snippets.INLINE]
             s += self.output[book_snippets.INLINEOUTPUT] % rep
-
-        # todo: maintain breaks
-        if 0:
-            breaks = snippet.ly().count("\n")
-            s += "".ljust(breaks, "\n").replace("\n", "%\n")
 
         if book_snippets.QUOTE in snippet.option_dict:
             s = self.output[book_snippets.QUOTE] % {'str': s}

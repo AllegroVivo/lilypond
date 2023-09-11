@@ -17,6 +17,7 @@
 
 """Parse toplevel VERSION file and provide its data in a `version_data` dictionary."""
 
+
 from pathlib import Path
 import re
 
@@ -25,16 +26,14 @@ contents = version_file.read_text(encoding="utf-8")
 contents = re.sub(r"#.*$", "", contents, flags=re.MULTILINE)  # trim comments
 version_data = {}
 for line in contents.splitlines():
-    m = re.match(r"\s*(\S+)\s*=\s*(\S*)\s*", line)
-    if m:
+    if m := re.match(r"\s*(\S+)\s*=\s*(\S*)\s*", line):
         key, value = m.groups()
         version_data[key] = value
 
 _major = version_data["MAJOR_VERSION"]
 _minor = version_data["MINOR_VERSION"]
 _patch = version_data["PATCH_LEVEL"]
-_my_patch = version_data["MY_PATCH_LEVEL"]
-if _my_patch:
+if _my_patch := version_data["MY_PATCH_LEVEL"]:
     version_data["TOPLEVEL_VERSION"] = f"{_major}.{_minor}.{_patch}.{_my_patch}"
 else:
     version_data["TOPLEVEL_VERSION"] = f"{_major}.{_minor}.{_patch}"

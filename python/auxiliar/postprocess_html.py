@@ -86,20 +86,15 @@ def build_pages_dict(filelist):
     Returns: basename => list of languages dict"""
     pages_dict = {}
 
-    language_codes = set([l.webext for l in langdefs.LANGUAGES])
+    language_codes = {l.webext for l in langdefs.LANGUAGES}
     for f in filelist:
-        m = html_re.match(f)
-        if m:
+        if m := html_re.match(f):
             g = m.groups()
-            if len(g) <= 1 or g[1] is None:
-                e = ''
-            else:
-                e = g[1]
-
+            e = '' if len(g) <= 1 or g[1] is None else g[1]
             if e not in language_codes:
                 continue
 
-            if not g[0] in pages_dict:
+            if g[0] not in pages_dict:
                 pages_dict[g[0]] = [e]
             else:
                 pages_dict[g[0]].append(e)
@@ -141,29 +136,28 @@ links_re = re.compile(r'href="([^/]\.*[^".]*)\.html(#[^"]*|)"')
 def remove_unneeded_anchor(match):
     file_no_ext = match.group(1)
     anchor = match.group(2)
-    if anchor != '' and file_no_ext.endswith(anchor[1:]):
-        return ''
-    return anchor
+    return '' if anchor != '' and file_no_ext.endswith(anchor[1:]) else anchor
 
 
 def process_online_link(match):
     anchor = remove_unneeded_anchor(match)
-    return ('href="' + match.group(1) + anchor + '"')
+    return f'href="{match.group(1)}{anchor}"'
 
 
 def process_offline_link(pages_dict, match, prefix, lang_ext):
     destination_path = os.path.normpath(os.path.join(
         os.path.dirname(prefix),
         match.group(1)))
-    if not (destination_path in pages_dict and
-            lang_ext in pages_dict[destination_path]):
+    if (
+        destination_path not in pages_dict
+        or lang_ext not in pages_dict[destination_path]
+    ):
         lang_ext = ''
 
     anchor = remove_unneeded_anchor(match)
     if lang_ext != '':
-        lang_ext = '.' + lang_ext
-    return ('href="' + match.group(1) + lang_ext
-            + '.html' + anchor + '"')
+        lang_ext = f'.{lang_ext}'
+    return f'href="{match.group(1)}{lang_ext}.html{anchor}"'
 
 
 def process_links(pages_dict, content, prefix, lang_ext, file_name, target):
@@ -235,15 +229,12 @@ syntax_highlighting_code = '''
 def add_menu(page_flavors, prefix, available, target, translation):
     for k in page_flavors:
         language_menu = ''
-        if page_flavors[k][0] != '':
-            t = translation[page_flavors[k][0]]
-        else:
-            t = _doc
+        t = translation[page_flavors[k][0]] if page_flavors[k][0] != '' else _doc
         for lang in available:
             lang_file = lang.file_name(os.path.basename(prefix), '.html')
             if language_menu != '':
                 language_menu += ', '
-            language_menu += '<a href="%s">%s</a>' % (lang_file, t(lang.name))
+            language_menu += f'<a href="{lang_file}">{t(lang.name)}</a>'
 
         languages = ''
         if language_menu:
@@ -268,7 +259,7 @@ def add_menu(page_flavors, prefix, available, target, translation):
                                                "warn_local_storage_text": warn}
             full_footer += code
 
-        full_footer = '''<div id="footer">%s</div>''' % full_footer
+        full_footer = f'''<div id="footer">{full_footer}</div>'''
 
         page_flavors[k][1] = add_footer(page_flavors[k][1], full_footer)
     return page_flavors
@@ -314,8 +305,7 @@ def process_html_files(pages_dict,
         '': en_dict,
     }
     for l in langdefs.translation:
-        e = langdefs.LANGDICT[l].webext
-        if e:
+        if e := langdefs.LANGDICT[l].webext:
             subst[e] = {
                 name: langdefs.translation[l](en_dict[name])
                 for name in en_dict}
@@ -326,11 +316,11 @@ def process_html_files(pages_dict,
         for k in ['footer_name_version', 'footer_report_links']:
             subst[e][k] = subst[e][k] % subst[e]
 
+    dest_time = 0
+
     for prefix, ext_list in list(pages_dict.items()):
         for lang_ext in ext_list:
             file_name = langdefs.lang_file_name(prefix, lang_ext, '.html')
-            dest_time = 0
-
             content = open(file_name, 'r', encoding='utf-8').read()
             content = content.replace('%', '%%')
 
@@ -347,12 +337,14 @@ def process_html_files(pages_dict,
             for k in page_flavors:
                 page_flavors[k][1] = page_flavors[k][1] % subst[page_flavors[k][0]]
 
-                # Must write to tmp file to avoid touching hardlinked files.
-                out_f = open(k + ".tmp", 'w', encoding='utf-8')
-                out_f.write(page_flavors[k][1])
-                out_f.close()
-                os.rename(k + ".tmp", k)
+                with open(f"{k}.tmp", 'w', encoding='utf-8') as out_f:
+                    out_f.write(page_flavors[k][1])
+                os.rename(f"{k}.tmp", k)
 
         # if the page is translated, a .en.html symlink is necessary for content negotiation
-        if target == 'online' and ext_list != [''] and not os.path.lexists(prefix + '.en.html'):
-            os.symlink(os.path.basename(prefix) + '.html', prefix + '.en.html')
+        if (
+            target == 'online'
+            and ext_list != ['']
+            and not os.path.lexists(f'{prefix}.en.html')
+        ):
+            os.symlink(f'{os.path.basename(prefix)}.html', f'{prefix}.en.html')

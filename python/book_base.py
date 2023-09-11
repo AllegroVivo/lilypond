@@ -128,11 +128,9 @@ class BookOutputFormat:
         """List of snippet types (strings)"""
         # Sort according to snippet_type_order, unknown keys come last
         keys = list(self.snippet_res.keys())
-        # First the entries in snippet_type_order in that order (if present)
-        # then all entries not in snippet_type_order in given order
-        res = [x for x in snippet_type_order if x in keys] + \
-            [x for x in keys if x not in snippet_type_order]
-        return res
+        return [x for x in snippet_type_order if x in keys] + [
+            x for x in keys if x not in snippet_type_order
+        ]
 
     def snippet_regexp(self, snippet_type):
         """return regex string for snippet type"""
@@ -159,7 +157,7 @@ class BookOutputFormat:
             if global_options.latex_program == 'latex':
                 global_options.latex_program = 'pdflatex'
         if '-dseparate-page-formats' not in global_options.process_cmd:
-            global_options.process_cmd += ' -dseparate-page-formats=%s ' % (','.join(formats))
+            global_options.process_cmd += f" -dseparate-page-formats={','.join(formats)} "
 
     def snippet_class(self, type):
         return BookSnippet.snippet_type_to_class.get(type, BookSnippet.Snippet)
@@ -170,8 +168,7 @@ class BookOutputFormat:
     def init_default_snippet_options(self, source):
         self.document_language = self.get_document_language(source)
         if LINE_WIDTH not in self.default_snippet_options:
-            line_width = self.get_line_width(source)
-            if line_width:
+            if line_width := self.get_line_width(source):
                 self.default_snippet_options[LINE_WIDTH] = line_width
 
     def get_line_width(self, source):
@@ -218,13 +215,15 @@ class BookOutputFormat:
     def required_files_png(self, snippet, base, full, required_files):
         # UGH - junk global_options
         res = []
-        if (base + '.eps' in required_files and not snippet.global_options.skip_png_check):
-            page_count = BookSnippet.ps_page_count(full + '.eps')
+        if (
+            f'{base}.eps' in required_files
+            and not snippet.global_options.skip_png_check
+        ):
+            page_count = BookSnippet.ps_page_count(f'{full}.eps')
             if page_count <= 1:
-                res.append(base + '.png')
+                res.append(f'{base}.png')
             else:
-                for page in range(1, page_count + 1):
-                    res.append(base + '-page%d.png' % page)
+                res.extend(base + '-page%d.png' % page for page in range(1, page_count + 1))
         return res
 
 
@@ -247,11 +246,8 @@ def find_linestarts(s):
 
 
 def find_toplevel_snippets(input_string, formatter, global_options):
-    res = {}
     types = formatter.supported_snippet_types()
-    for t in types:
-        res[t] = re.compile(formatter.snippet_regexp(t))
-
+    res = {t: re.compile(formatter.snippet_regexp(t)) for t in types}
     snippets = []
     index = 0
     found = dict([(t, None) for t in types])
@@ -313,9 +309,14 @@ def find_toplevel_snippets(input_string, formatter, global_options):
             line_start_idx += 1
 
         (start, snip) = found[first]
-        snippets.append(BookSnippet.Substring(
-            input_string, index, start, line_start_idx + 1))
-        snippets.append(snip)
+        snippets.extend(
+            (
+                BookSnippet.Substring(
+                    input_string, index, start, line_start_idx + 1
+                ),
+                snip,
+            )
+        )
         found[first] = None
         index = start + len(snip.match.group('match'))
 

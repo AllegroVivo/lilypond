@@ -132,7 +132,7 @@ add_feature_kern(font)
 
 lisp = b""
 for sub in subfonts:
-    lisp += open(os.path.join(indir, sub) + ".lisp", "rb").read()
+    lisp += open(f"{os.path.join(indir, sub)}.lisp", "rb").read()
 compressed_lisp = zlib.compress(lisp, 9)
 
 font.setTableData("LILC", compressed_lisp)
@@ -144,4 +144,4 @@ font.setTableData("LILY", open(os.path.join(
 
 font.generate(output)
 base, ext = os.path.splitext(output)
-font.generate(base + ".svg")
+font.generate(f"{base}.svg")

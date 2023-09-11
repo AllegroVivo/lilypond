@@ -114,7 +114,7 @@ def _read_three_bytes(status, nextbyte, getbyte):
 
 def _read_string(nextbyte, getbyte):
     length = _get_variable_length_number(nextbyte, getbyte)
-    return ''.join(chr(getbyte()) for i in range(length))
+    return ''.join(chr(getbyte()) for _ in range(length))
 
 
 def _read_f0_byte(status, nextbyte, getbyte):
@@ -173,20 +173,18 @@ def _parse_hunk(data, pos, type, magic):
     try:
         length, = struct.unpack('>I', data[pos+4:pos+8])
     except struct.error:
-        raise error(
-            'the %s header is truncated (may be an incomplete download)' % type)
+        raise error(f'the {type} header is truncated (may be an incomplete download)')
     endpos = pos + 8 + length
     data = data[pos+8:endpos]
     if len(data) != length:
-        raise error(
-            'the %s is truncated (may be an incomplete download)' % type)
+        raise error(f'the {type} is truncated (may be an incomplete download)')
     return data, endpos
 
 
 def _parse_tracks(midi, pos, num_tracks, clocks_max):
     if num_tracks > 256:
         raise error('too many tracks: %d' % num_tracks)
-    for i in range(num_tracks):
+    for _ in range(num_tracks):
         trackdata, pos = _parse_hunk(midi, pos, 'track', b'MTrk')
         yield list(_parse_track_body(trackdata, clocks_max))
     # if pos < len(midi):

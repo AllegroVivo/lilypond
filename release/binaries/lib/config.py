@@ -137,10 +137,7 @@ class Config:
     @property
     def make_command(self) -> str:
         """Return the command for the make build system"""
-        if self.is_freebsd():
-            # Use GNU make instead of BSD make.
-            return "gmake"
-        return "make"
+        return "gmake" if self.is_freebsd() else "make"
 
     def create_directories(self):
         """Create all necessary directories for this configuration."""

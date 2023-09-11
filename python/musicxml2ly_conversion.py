@@ -23,10 +23,7 @@ import musicexp
 
 
 def musicxml_step_to_lily(step):
-    if step:
-        return (ord(step) - ord('A') + 7 - 2) % 7
-    else:
-        return None
+    return (ord(step) - ord('A') + 7 - 2) % 7 if step else None
 
 
 class Marker(musicexp.Music):
@@ -36,7 +33,6 @@ class Marker(musicexp.Music):
 
     def print_ly(self, printer):
         ly.warning(_("Encountered unprocessed marker %s\n") % self)
-        pass
 
     def ly_expression(self):
         return ""

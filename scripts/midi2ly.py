@@ -110,10 +110,9 @@ class Duration:
         dur = 0
         num = 1
         den = 1
-        g = math.gcd(int(clocks), clocks_per_1)
-        if g:
+        if g := math.gcd(int(clocks), clocks_per_1):
             (dur, num) = (clocks_per_1 / g, clocks / g)
-        if not dur in self.allowed_durs:
+        if dur not in self.allowed_durs:
             dur = 4
             num = clocks
             den = clocks_per_4
@@ -141,10 +140,7 @@ class Duration:
 
 
 def sign(x):
-    if x >= 0:
-        return 1
-    else:
-        return -1
+    return 1 if x >= 0 else -1
 
 
 class Note:
@@ -254,12 +250,12 @@ class Note:
 
     def __repr__(self):
         s = chr((self.notename + 2) % 7 + ord('a'))
-        return 'Note(%s %s)' % (s, repr(self.duration))
+        return f'Note({s} {repr(self.duration)})'
 
     def dump(self, dump_dur=True):
         global reference_note
         s = chr((self.notename + 2) % 7 + ord('a'))
-        s = s + self.alteration_names[self.alteration + 2]
+        s += self.alteration_names[self.alteration + 2]
         if global_options.absolute_pitches:
             commas = self.octave
         else:
@@ -287,7 +283,7 @@ class Note:
         reference_note = self
 
         # TODO: move space
-        return s + ' '
+        return f'{s} '
 
 
 class Time:
@@ -330,7 +326,7 @@ class Clef:
         self.type = type
 
     def __repr__(self):
-        return 'Clef(%s)' % self.clefs[self.type]
+        return f'Clef({self.clefs[self.type]})'
 
     def dump(self):
         return '\n  \\clef %s\n  ' % self.clefs[self.type]
@@ -350,9 +346,7 @@ class Key:
         global_options.key = self
 
         s = ''
-        if self.sharps and self.flats:
-            pass
-        else:
+        if not self.sharps or not self.flats:
             if self.flats:
                 k = (ord('cfbeadg'[self.flats % 7]) -
                      ord('a') - 2 - 2 * self.minor + 7) % 7
@@ -360,11 +354,7 @@ class Key:
                 k = (ord('cgdaebf'[self.sharps % 7]) -
                      ord('a') - 2 - 2 * self.minor + 7) % 7
 
-            if not self.minor:
-                name = chr((k + 2) % 7 + ord('a'))
-            else:
-                name = chr((k + 2) % 7 + ord('a'))
-
+            name = chr((k + 2) % 7 + ord('a'))
             # fis cis gis dis ais eis bis
             sharps = (2, 4, 6, 1, 3, 5, 7)
             # bes es as des ges ces fes
@@ -373,19 +363,14 @@ class Key:
             if self.flats:
                 if flats[k] <= self.flats:
                     a = -1
-            else:
-                if sharps[k] <= self.sharps:
-                    a = 1
+            elif sharps[k] <= self.sharps:
+                a = 1
 
             if a:
-                name = name + Note.alteration_names[a + 2]
+                name += Note.alteration_names[a + 2]
 
             s = '\\key ' + name
-            if self.minor:
-                s = s + ' \\minor'
-            else:
-                s = s + ' \\major'
-
+            s += ' \\minor' if self.minor else ' \\major'
         return '\n\n  ' + s + '\n  '
 
 
@@ -404,10 +389,7 @@ class Text:
 
     @staticmethod
     def _text_only(chr):
-        if ((' ' <= chr <= '~') or chr in ['\n', '\r']):
-            return chr
-        else:
-            return '~'
+        return chr if ((' ' <= chr <= '~') or chr in ['\n', '\r']) else '~'
 
     def __init__(self, type, text):
         self.clocks = 0
@@ -418,23 +400,24 @@ class Text:
         # urg, we should be sure that we're in a lyrics staff
         s = ''
         if self.type == midi.LYRIC:
-            s = '"%s"' % self.text
+            s = f'"{self.text}"'
             d = Duration(self.clocks)
             if (global_options.explicit_durations
                     or d.compare(reference_note.duration)):
-                s = s + Duration(self.clocks).dump()
-            s = s + ' '
-        elif (self.text.strip()
-              and self.type == midi.SEQUENCE_TRACK_NAME
-              and not self.text == 'control track'
-              and not self.track.lyrics_p_):
-            text = self.text.replace('(MIDI)', '').strip()
-            if text:
+                s += Duration(self.clocks).dump()
+            s = f'{s} '
+        elif (
+            self.text.strip()
+            and self.type == midi.SEQUENCE_TRACK_NAME
+            and self.text != 'control track'
+            and not self.track.lyrics_p_
+        ):
+            if text := self.text.replace('(MIDI)', '').strip():
                 s = '\n  \\set Staff.instrumentName = "%(text)s"\n  ' % locals(
                 )
         elif self.text.strip():
             s = '\n  % [' + self.text_types[self.type] + '] ' + \
-                self.text + '\n  '
+                    self.text + '\n  '
         return s
 
     def __repr__(self):
@@ -451,7 +434,7 @@ class EndOfTrack:
         return ''
 
 def get_voice(channel, music):
-    ly.debug_output('channel: ' + str(channel) + '\n')
+    ly.debug_output(f'channel: {str(channel)}' + '\n')
     return unthread_notes(music)
 
 
@@ -490,13 +473,12 @@ class Channel:
                 end_note(pitches, notes, t, e[1][1])
 
             elif e[1][0] == midi.NOTE_ON:
-                if e[1][1] not in pitches:
-                    ly.debug_output('%d: NOTE ON: %s' % (t, e[1][1]))
-                    pitches[e[1][1]] = (t, e[1][2])
-                else:
+                if e[1][1] in pitches:
                     ly.debug_output('...ignored')
 
-            # all include ALL_NOTES_OFF
+                else:
+                    ly.debug_output('%d: NOTE ON: %s' % (t, e[1][1]))
+                    pitches[e[1][1]] = (t, e[1][2])
             elif (e[1][0] >= midi.ALL_SOUND_OFF
                   and e[1][0] <= midi.POLY_MODE_ON):
                 for i in pitches:
@@ -555,12 +537,10 @@ class Channel:
                     music.append((t, text))
                     if text.type == midi.SEQUENCE_TRACK_NAME:
                         self.name = text.text
-                else:
-                    if global_options.verbose:
-                        sys.stderr.write("SKIP: %s\n" % repr(e))
-            else:
-                if global_options.verbose:
+                elif global_options.verbose:
                     sys.stderr.write("SKIP: %s\n" % repr(e))
+            elif global_options.verbose:
+                sys.stderr.write("SKIP: %s\n" % repr(e))
 
         if last_lyric:
             # last_lyric.clocks = t - last_time
@@ -671,11 +651,7 @@ def unthread_notes(channel):
                 thread.append(e)
                 start_busy_t = t
                 end_busy_t = t + e[1].clocks
-            elif (e[1].__class__ == Time
-                  or e[1].__class__ == Key
-                  or e[1].__class__ == Text
-                  or e[1].__class__ == Tempo
-                  or e[1].__class__ == EndOfTrack):
+            elif e[1].__class__ in [Time, Key, Text, Tempo, EndOfTrack]:
                 thread.append(e)
             else:
                 todo.append(e)
@@ -713,16 +689,16 @@ def dump_chord(ch):
     elif len(notes) > 1:
         global reference_note
         reference_dur = reference_note.duration
-        s = s + '<'
+        s = f'{s}<'
         s = s + notes[0].dump(dump_dur=False)
         r = reference_note
         for i in notes[1:]:
             s = s + i.dump(dump_dur=False)
-        s = s + '>'
+        s = f'{s}>'
         if (r.duration.compare(reference_dur)
                 or global_options.explicit_durations):
             s = s + r.duration.dump()
-        s = s + ' '
+        s = f'{s} '
         reference_note = r
     return s
 
@@ -746,11 +722,9 @@ def dump_bar_line(last_bar_t, t, bar_count):
 def dump_voice(thread, skip):
     global reference_note, time
     ref = Note(0, 4*12, 0)
-    if not reference_note:
-        reference_note = ref
-    else:
+    if reference_note:
         ref.duration = reference_note.duration
-        reference_note = ref
+    reference_note = ref
     last_e = None
     chs = []
     ch = []
@@ -823,17 +797,15 @@ def number2ascii(i):
 
 
 def get_track_name(i):
-    return 'track' + number2ascii(i)
+    return f'track{number2ascii(i)}'
 
 
 def get_channel_name(i):
-    return 'channel' + number2ascii(i)
+    return f'channel{number2ascii(i)}'
 
 
 def get_voice_name(i, zero_too_p=False):
-    if i or zero_too_p:
-        return 'voice' + number2ascii(i)
-    return ''
+    return f'voice{number2ascii(i)}' if i or zero_too_p else ''
 
 
 def lst_append(lst, x):
@@ -847,10 +819,8 @@ def get_voice_layout(average_pitch):
         d[average_pitch[i]] = lst_append(d.get(average_pitch[i], []), i)
     s = list(reversed(sorted(average_pitch)))
     non_empty = len([x for x in s if x])
-    names = ['One', 'Two']
-    if non_empty > 2:
-        names = ['One', 'Three', 'Four', 'Two']
-    layout = ['' for x in range(len(average_pitch))]
+    names = ['One', 'Three', 'Four', 'Two'] if non_empty > 2 else ['One', 'Two']
+    layout = ['' for _ in range(len(average_pitch))]
     for i, n in zip(s, names):
         if i:
             v = d[i]
@@ -872,10 +842,9 @@ def dump_track(track, n):
     c = 0
     vv = 0
     for channel in track:
-        v = 0
         channel_name = get_channel_name(c)
         c += 1
-        for voice in channel:
+        for v, voice in enumerate(channel):
             voice_name = get_voice_name(v)
             voice_id = track_name + channel_name + voice_name
             item = voice_first_item(voice)
@@ -897,16 +866,13 @@ def dump_track(track, n):
             if not n and not vv and global_options.key:
                 s += global_options.key.dump()
             if average_pitch[vv+1] and voices > 1:
-                vl = get_voice_layout(average_pitch[1:])[vv]
-                if vl:
+                if vl := get_voice_layout(average_pitch[1:])[vv]:
                     s += '  \\voice' + vl + '\n'
-                else:
-                    if not global_options.quiet:
-                        ly.warning(
-                            _('found more than 5 voices on a staff, expect bad output'))
-            s += '  ' + dump_voice(voice, skip)
+                elif not global_options.quiet:
+                    ly.warning(
+                        _('found more than 5 voices on a staff, expect bad output'))
+            s += f'  {dump_voice(voice, skip)}'
             s += '}\n\n'
-            v += 1
             vv += 1
 
     s += '%(track_name)s = <<\n' % locals()
@@ -917,13 +883,11 @@ def dump_track(track, n):
     c = 0
     vv = 0
     for channel in track:
-        v = 0
         channel_name = get_channel_name(c)
         c += 1
-        for voice in channel:
+        for v, voice in enumerate(channel):
             voice_context_name = get_voice_name(vv, zero_too_p=True)
             voice_name = get_voice_name(v)
-            v += 1
             vv += 1
             voice_id = track_name + channel_name + voice_name
             item = voice_first_item(voice)
@@ -936,26 +900,29 @@ def dump_track(track, n):
 
 
 def voice_first_item(voice):
-    for event in voice:
-        if (event[1].__class__ == Note
-            or (event[1].__class__ == Text
-                and event[1].type == midi.LYRIC)):
-            return event[1]
-    return None
+    return next(
+        (
+            event[1]
+            for event in voice
+            if (
+                event[1].__class__ == Note
+                or (event[1].__class__ == Text and event[1].type == midi.LYRIC)
+            )
+        ),
+        None,
+    )
 
 
 def channel_first_item(channel):
     for voice in channel:
-        first = voice_first_item(voice)
-        if first:
+        if first := voice_first_item(voice):
             return first
     return None
 
 
 def track_first_item(track):
     for channel in track:
-        first = channel_first_item(channel)
-        if first:
+        if first := channel_first_item(channel):
             return first
     return None
 

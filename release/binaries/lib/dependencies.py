@@ -351,7 +351,7 @@ class Gettext(ConfigurePackage):
         # as a native compiler, so it doesn't work for mingw.
         ldflags = "-L" + os.path.join(gettext_install, "lib")
         if c.is_macos():
-            ldflags += " " + self.macos_ldflags
+            ldflags += f" {self.macos_ldflags}"
 
         return {
             "CPATH": os.path.join(gettext_install, "include"),
@@ -451,7 +451,7 @@ class GLib(MesonPackage):
 
     @property
     def download_url(self) -> str:
-        major_version = ".".join(self.version.split(".")[0:2])
+        major_version = ".".join(self.version.split(".")[:2])
         return f"https://download.gnome.org/sources/glib/{major_version}/{self.archive}"
 
     def dependencies(self, c: Config) -> List[Package]:
@@ -685,7 +685,7 @@ class Guile(ConfigurePackage):
     @property
     def major_version(self) -> str:
         """Return Guile's major version, used in the directory structure."""
-        return ".".join(self.version.split(".")[0:2])
+        return ".".join(self.version.split(".")[:2])
 
     @property
     def directory(self) -> str:
@@ -935,7 +935,7 @@ class Pango(MesonPackage):
 
     @property
     def download_url(self) -> str:
-        major_version = ".".join(self.version.split(".")[0:2])
+        major_version = ".".join(self.version.split(".")[:2])
         # fmt: off
         return f"https://download.gnome.org/sources/pango/{major_version}/{self.archive}"
         # fmt: on
@@ -1126,7 +1126,7 @@ class Python(ConfigurePackage):
     @property
     def major_version(self) -> str:
         """Return Python's major version, used in the executable name."""
-        return ".".join(self.version.split(".")[0:2])
+        return ".".join(self.version.split(".")[:2])
 
     @property
     def python_with_major_version(self) -> str:
@@ -1182,7 +1182,7 @@ class Python(ConfigurePackage):
                 "_struct",
                 "zlib",
             ]:
-                content = content.replace("#" + module, module)
+                content = content.replace(f"#{module}", module)
             return content
 
         self.patch_file(c, os.path.join("Modules", "Setup"), patch_setup)
@@ -1262,7 +1262,7 @@ class EmbeddablePython(Package):
         os.makedirs(install_directory, exist_ok=True)
 
         # NB: Without a dot between the two numbers!
-        major_version = "".join(self.version.split(".")[0:2])
+        major_version = "".join(self.version.split(".")[:2])
         python_with_major_version = f"python{major_version}"
 
         # Copy over the needed files from the downloaded archive.

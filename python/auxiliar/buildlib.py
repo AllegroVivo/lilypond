@@ -36,7 +36,7 @@ def read_pipe(command):
         print("pipe failed: %(command)s" % locals())
     (output, error) = (output.decode('utf-8'), error.decode('utf-8'))
     if code != '0':
-        error = code + ' ' + error
+        error = f'{code} {error}'
     return (output, error)
 
 
@@ -79,7 +79,7 @@ def get_old_name(file_path):
 
 
 def file_exists_at(revision, name):
-    cmd = "git show %s:Documentation/%s" % (revision, name)
+    cmd = f"git show {revision}:Documentation/{name}"
     if verbose:
         sys.stderr.write('running: %s\n' % cmd)
 
@@ -108,11 +108,7 @@ def check_translated_doc(original, translated_file, translated_contents,
     if revision == '0':
         return '', 0
 
-    if color:
-        color_flag = '--color --color-words'
-    else:
-        color_flag = '--no-color'
-
+    color_flag = '--color --color-words' if color else '--no-color'
     current_name = original
 
     if original.startswith("en/") and not file_exists_at(revision, original):

@@ -37,7 +37,7 @@ keywords += ['include', 'maininput', 'version']
 
 # the main keywords
 s = open('lily/lily-lexer.cc', 'r', encoding='utf-8').read()
-keywords += [w for w in re.findall(r"\s*{\"(.+)\",\s*.*},\s*\n", s)]
+keywords += list(re.findall(r"\s*{\"(.+)\",\s*.*},\s*\n", s))
 
 # markup commands
 for name in ['ly/toc-init.ly',
@@ -45,8 +45,7 @@ for name in ['ly/toc-init.ly',
              'scm/fret-diagrams.scm',
              'scm/harp-pedals.scm']:
     s = open(name, 'r', encoding='utf-8').read()
-    keywords += [w for w in re.findall(
-        r"\(define-markup[a-z-]+\s+\(([a-zA-Z-]+)", s)]
+    keywords += list(re.findall(r"\(define-markup[a-z-]+\s+\(([a-zA-Z-]+)", s))
 
 # identifiers and keywords
 for name in ['ly/ancient-init.ly',
@@ -63,12 +62,13 @@ for name in ['ly/ancient-init.ly',
              'ly/toc-init.ly',
              'ly/declarations-init.ly']:
     s = open(name, 'r', encoding='utf-8').read()
-    keywords += [w for w in re.findall(r"(?m)^\s*\"?([a-zA-Z]+)\"?\s*=", s)]
+    keywords += list(re.findall(r"(?m)^\s*\"?([a-zA-Z]+)\"?\s*=", s))
 
 # note names
 s = open('scm/define-note-names.scm', 'r', encoding='utf-8').read()
-note_names += [n for n in re.findall(
-    r"(?m)^\s*\(([a-z]+)\s+\.\s+,\(ly:make-pitch", s)]
+note_names += list(
+    re.findall(r"(?m)^\s*\(([a-z]+)\s+\.\s+,\(ly:make-pitch", s)
+)
 
 # reserved words
 for name in ['ly/engraver-init.ly',
@@ -77,7 +77,7 @@ for name in ['ly/engraver-init.ly',
     for pattern in [r"(?m)^\s*.consists\s+\"([a-zA-Z_]+)\"",
                     r"[\\]name\s+[\"]?([a-zA-Z_]+)[\"]?",
                     r"\s+([a-zA-Z_]+)\s*\\(?:set|override)"]:
-        reserved_words += [w for w in re.findall(pattern, s)]
+        reserved_words += list(re.findall(pattern, s))
 
 keywords = list(set(keywords))
 keywords.sort(reverse=True)
@@ -99,18 +99,19 @@ options = getopt.getopt(sys.argv[1:],
                         '', ['words', 'el', 'vim', 'dir='])[0]
 
 for (o, a) in options:
-    if o == '--words':
-        out_words = True
+    if o == '--dir':
+        outdir = a
+
     elif o == '--el':
         out_el = True
     elif o == '--vim':
         out_vim = True
-    elif o == '--dir':
-        outdir = a
-
+    elif o == '--words':
+        out_words = True
 if out_words or out_el:
-    outstring = ''.join(['\\\\' + w + '\n' for w in keywords])
-    outstring += ''.join([w + '\n' for w in reserved_words])
+    outstring = ''.join(['\\\\' + w + '\n' for w in keywords]) + ''.join(
+        [w + '\n' for w in reserved_words]
+    )
     outstring += ''.join([w + '\n' for w in note_names])
 
 if out_words:

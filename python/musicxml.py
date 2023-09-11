@@ -120,16 +120,13 @@ class Xml_node(object):
         if non_text_children:
             ly.debug_output('\n')
         for c in self._children:
-            c.dump(indent + "    ")
+            c.dump(f"{indent}    ")
         if non_text_children:
             ly.debug_output(indent)
         ly.debug_output('</%s>\n' % self._name)
 
     def get_typed_children(self, klass):
-        if not klass:
-            return []
-        else:
-            return [c for c in self._children if isinstance(c, klass)]
+        return [] if not klass else [c for c in self._children if isinstance(c, klass)]
 
     def get_named_children(self, nm):
         return self.get_typed_children(get_class(nm))
@@ -150,11 +147,10 @@ class Xml_node(object):
         cn = self.get_typed_children(klass)
         if len(cn) == 0:
             return None
-        else:
-            if len(cn) > 1:
-                warnings.warn(_('more than one child of class %s, all but'
-                                ' the first will be ignored') % klass.__name__)
-            return cn[0]
+        if len(cn) > 1:
+            warnings.warn(_('more than one child of class %s, all but'
+                            ' the first will be ignored') % klass.__name__)
+        return cn[0]
 
     def get_unique_typed_child(self, klass):
         cn = self.get_typed_children(klass)
@@ -166,8 +162,7 @@ class Xml_node(object):
         return cn[0]
 
     def get_named_child_value_number(self, name, default):
-        n = self.get_maybe_exist_named_child(name)
-        if n:
+        if n := self.get_maybe_exist_named_child(name):
             return int(n.get_text())
         else:
             return default
@@ -197,11 +192,7 @@ class Measure_element(Music_xml_node):
 class Work(Xml_node):
 
     def get_work_information(self, tag):
-        wt = self.get_maybe_exist_named_child(tag)
-        if wt:
-            return wt.get_text()
-        else:
-            return ''
+        return wt.get_text() if (wt := self.get_maybe_exist_named_child(tag)) else ''
 
     def get_work_title(self):
         return self.get_work_information('work-title')
@@ -237,29 +228,21 @@ class Identification(Xml_node):
     # get contents of the source-element(usually used for publishing information).(These contents are saved in a custom variable named "source" in the header of the .ly file.)
     def get_source(self):
         source = self.get_named_children('source')
-        ret = []
-        for r in source:
-            ret.append(r.get_text())
+        ret = [r.get_text() for r in source]
         return "\n".join(ret)
 
     def get_creator(self, type):
         creators = self.get_named_children('creator')
-        # return the first creator tag that has the particular type
-        for i in creators:
-            if getattr(i, 'type', None) == type:
-                return i.get_text()
-        return None
+        return next(
+            (i.get_text() for i in creators if getattr(i, 'type', None) == type),
+            None,
+        )
 
     def get_composer(self):
-        c = self.get_creator('composer')
-        if c:
+        if c := self.get_creator('composer'):
             return c
         creators = self.get_named_children('creator')
-        # return the first creator tag that has no type at all
-        for i in creators:
-            if not hasattr(i, 'type'):
-                return i.get_text()
-        return None
+        return next((i.get_text() for i in creators if not hasattr(i, 'type')), None)
 
     def get_arranger(self):
         return self.get_creator('arranger')
@@ -275,10 +258,8 @@ class Identification(Xml_node):
         return v
 
     def get_encoding_information(self, type):
-        enc = self.get_named_children('encoding')
-        if enc:
-            children = enc[0].get_named_children(type)
-            if children:
+        if enc := self.get_named_children('encoding'):
+            if children := enc[0].get_named_children(type):
                 return children[0].get_text()
         else:
             return None
@@ -300,8 +281,7 @@ class Identification(Xml_node):
         software = []
         for e in enc:
             softwares = e.get_named_children('software')
-            for s in softwares:
-                software.append(s.get_text())
+            software.extend(s.get_text() for s in softwares)
         return software
 
     def get_file_description(self):
@@ -325,10 +305,7 @@ class Credit(Xml_node):
 
     def get_type(self):
         type = self.get_maybe_exist_named_child('credit-type')
-        if type is not None:
-            return type.get_text()
-        else:
-            return None
+        return type.get_text() if type is not None else None
 
     ## TODO: Should this method even exist?  Review all callers since there can
     ## be multiple <credit-words> in a <credit>.
@@ -419,10 +396,7 @@ class Credit(Xml_node):
 
     def get_text(self):
         words = self.get_first_credit_words()
-        if words is not None:
-            return words.get_text()
-        else:
-            return ''
+        return words.get_text() if words is not None else ''
 
 
 class Duration(Music_xml_node):
@@ -458,8 +432,7 @@ class Unpitched(Music_xml_node):
 
     def to_lily_object(self):
         p = None
-        step = self.get('display-step')
-        if step:
+        if step := self.get('display-step'):
             p = musicexp.Pitch()
             p.step = musicxml2ly_conversion.musicxml_step_to_lily(step)
             # if display-step is present, display-octave must be present too
@@ -492,25 +465,18 @@ class Attributes(Measure_element):
     def single_time_sig_to_fraction(self, sig):
         if len(sig) < 2:
             return 0
-        n = 0
-        for i in sig[0:-1]:
-            n += i
+        n = sum(sig[:-1])
         return Fraction(n, sig[-1])
 
     def get_measure_length(self):
         sig = self.get_time_signature()
         if not sig or len(sig) == 0:
             return 1
-        if isinstance(sig[0], list):
-            # Complex compound time signature
-            l = 0
-            for i in sig:
-                l += self.single_time_sig_to_fraction(i)
-            return l
-        else:
-           # Simple(maybe compound) time signature of the form(beat, ..., type)
-            return self.single_time_sig_to_fraction(sig)
-        return 0
+        return (
+            sum(self.single_time_sig_to_fraction(i) for i in sig)
+            if isinstance(sig[0], list)
+            else self.single_time_sig_to_fraction(sig)
+        )
 
     def get_time_signature(self):
         "Return time sig as a(beat, beat-type) tuple. For compound signatures,"
@@ -555,14 +521,11 @@ class Attributes(Measure_element):
         mxl = self.get_named_attribute('clef')
         if not mxl:
             return clefinfo
-        sign = mxl.get_maybe_exist_named_child('sign')
-        if sign:
+        if sign := mxl.get_maybe_exist_named_child('sign'):
             clefinfo[0] = sign.get_text()
-        line = mxl.get_maybe_exist_named_child('line')
-        if line:
+        if line := mxl.get_maybe_exist_named_child('line'):
             clefinfo[1] = int(line.get_text())
-        octave = mxl.get_maybe_exist_named_child('clef-octave-change')
-        if octave:
+        if octave := mxl.get_maybe_exist_named_child('clef-octave-change'):
             clefinfo[2] = int(octave.get_text())
         return clefinfo
 
@@ -575,12 +538,11 @@ class Attributes(Measure_element):
         key = self.get_named_attribute('key')
         if not key:
             return None
-        fifths_elm = key.get_maybe_exist_named_child('fifths')
-        if fifths_elm:
-            mode_node = key.get_maybe_exist_named_child('mode')
-            mode = None
-            if mode_node:
+        if fifths_elm := key.get_maybe_exist_named_child('fifths'):
+            if mode_node := key.get_maybe_exist_named_child('mode'):
                 mode = mode_node.get_text()
+            else:
+                mode = None
             if not mode or mode == '':
                 mode = 'major'
             fifths = int(fifths_elm.get_text())
@@ -624,10 +586,7 @@ class Barline(Measure_element):
         repeat_element = self.get_maybe_exist_named_child("repeat")
         ending_element = self.get_maybe_exist_named_child("ending")
 
-        bartype = None
-        if bartype_element:
-            bartype = bartype_element.get_text()
-
+        bartype = bartype_element.get_text() if bartype_element else None
         direction = getattr(repeat_element, 'direction', None)
         if direction is not None:
             repeat = musicxml2ly_conversion.RepeatMarker()
@@ -695,10 +654,10 @@ class Stem(Music_xml_node):
         color = getattr(self, 'color', None)
         if color is not None:
             color = utilities.hex_to_color(color)
-            if color is not None:
-                event = musicexp.StemstyleEvent()
-                event.color = color
-                return event
+        if color is not None:
+            event = musicexp.StemstyleEvent()
+            event.color = color
+            return event
         return None
 
 
@@ -810,10 +769,7 @@ class Note(Measure_element):
 
     def initialize_duration(self):
         from musicexp import Duration
-        # if the note has no Type child, then that method returns None. In that case,
-        # use the <duration> tag instead. If that doesn't exist, either -> Error
-        dur = self.get_duration_info()
-        if dur:
+        if dur := self.get_duration_info():
             d = Duration()
             d.duration_log = dur[0]
             d.dots = dur[1]
@@ -829,11 +785,10 @@ class Note(Measure_element):
         else:
             if self._duration > 0:
                 return Duration.from_fraction(self._duration)
-            else:
-                self.message(
-                    _("Encountered note at %s without type and duration(=%s)")
-                    % (mxl_note.start, mxl_note._duration))
-                return None
+            self.message(
+                _("Encountered note at %s without type and duration(=%s)")
+                % (mxl_note.start, mxl_note._duration))
+            return None
 
     def initialize_pitched_event(self):
         pitch = self['pitch'].to_lily_object()
@@ -924,12 +879,10 @@ class Part_list(Music_xml_node):
         if not self._id_instrument_name_dict:
             self.generate_id_instrument_dict()
 
-        instrument_name = self._id_instrument_name_dict.get(id)
-        if instrument_name:
+        if instrument_name := self._id_instrument_name_dict.get(id):
             return instrument_name
-        else:
-            ly.warning(_("Unable to find instrument for ID=%s\n") % id)
-            return "Grand Piano"
+        ly.warning(_("Unable to find instrument for ID=%s\n") % id)
+        return "Grand Piano"
 
 
 class Measure(Music_xml_node):
@@ -949,7 +902,7 @@ class Syllabic(Music_xml_node):
 
     def continued(self):
         text = self.get_text()
-        return text == "begin" or text == "middle"
+        return text in ["begin", "middle"]
 
     def begin(self):
         return text == "begin"
@@ -989,11 +942,7 @@ class Notations(Music_xml_node):
 
     def get_tie(self):
         ts = self.get_named_children('tied')
-        starts = [t for t in ts if t.type == 'start']
-        if starts:
-            return starts[0]
-        else:
-            return None
+        return starts[0] if (starts := [t for t in ts if t.type == 'start']) else None
 
     def get_tuplets(self):
         return self.get_typed_children(Tuplet)
@@ -1007,8 +956,7 @@ class Time_modification(Music_xml_node):
         return(int(a.get_text()), int(b.get_text()))
 
     def get_normal_type(self):
-        tuplet_type = self.get_maybe_exist_named_child('normal-type')
-        if tuplet_type:
+        if tuplet_type := self.get_maybe_exist_named_child('normal-type'):
             dots = self.get_named_children('normal-dot')
             log = utilities.musicxml_duration_to_log(
                 tuplet_type.get_text().strip())
@@ -1028,8 +976,7 @@ class Accidental(Music_xml_node):
 class Tuplet(Music_xml_spanner):
 
     def duration_info_from_tuplet_note(self, tuplet_note):
-        tuplet_type = tuplet_note.get_maybe_exist_named_child('tuplet-type')
-        if tuplet_type:
+        if tuplet_type := tuplet_note.get_maybe_exist_named_child('tuplet-type'):
             dots = tuplet_note.get_named_children('tuplet-dot')
             log = utilities.musicxml_duration_to_log(
                 tuplet_type.get_text().strip())
@@ -1039,24 +986,22 @@ class Tuplet(Music_xml_spanner):
 
     # Return tuplet note type as(log, dots)
     def get_normal_type(self):
-        tuplet = self.get_maybe_exist_named_child('tuplet-normal')
-        if tuplet:
+        if tuplet := self.get_maybe_exist_named_child('tuplet-normal'):
             return self.duration_info_from_tuplet_note(tuplet)
         else:
             return None
 
     def get_actual_type(self):
-        tuplet = self.get_maybe_exist_named_child('tuplet-actual')
-        if tuplet:
+        if tuplet := self.get_maybe_exist_named_child('tuplet-actual'):
             return self.duration_info_from_tuplet_note(tuplet)
         else:
             return None
 
     def get_tuplet_note_count(self, tuplet_note):
         if tuplet_note:
-            tuplet_nr = tuplet_note.get_maybe_exist_named_child(
-                'tuplet-number')
-            if tuplet_nr:
+            if tuplet_nr := tuplet_note.get_maybe_exist_named_child(
+                'tuplet-number'
+            ):
                 return int(tuplet_nr.get_text())
         return None
 
@@ -1104,8 +1049,7 @@ class Rest(Music_xml_node):
 
     def to_lily_object(self):
         p = None
-        step = self.get('display-step')
-        if step:
+        if step := self.get('display-step'):
             p = musicexp.Pitch()
             p.step = musicxml2ly_conversion.musicxml_step_to_lily(step)
             # if display-step is present, display-octave must be present too
@@ -1154,11 +1098,11 @@ class ChordModification(Music_xml_node):
         return {'add': 1, 'alter': 1, 'subtract': -1}.get(ch.get_text().strip(), 0)
 
     def get_value(self):
-        ch = self.get_maybe_exist_typed_child(get_class('degree-value'))
-        value = 0
-        if ch:
-            value = int(ch.get_text().strip())
-        return value
+        return (
+            int(ch.get_text().strip())
+            if (ch := self.get_maybe_exist_typed_child(get_class('degree-value')))
+            else 0
+        )
 
     def get_alter(self):
         ch = self.get_maybe_exist_typed_child(get_class('degree-alter'))
@@ -1189,8 +1133,7 @@ class Frame_Note(Music_xml_node):
         return self.get_named_child_value_number('fingering', -1)
 
     def get_barre(self):
-        n = self.get_maybe_exist_named_child('barre')
-        if n:
+        if n := self.get_maybe_exist_named_child('barre'):
             return getattr(n, 'type', '')
         else:
             return ''
@@ -1229,11 +1172,7 @@ class Musicxml_voice:
         self._elements.insert(idx, e)
 
     def get_lyrics_numbers(self):
-        if(len(self._lyrics) == 0) and self._has_lyrics:
-            # only happens if none of the <lyric> tags has a number attribute
-            return ['1']
-        else:
-            return self._lyrics
+        return ['1'] if (len(self._lyrics) == 0) and self._has_lyrics else self._lyrics
 
 
 class Part(Music_xml_node):
@@ -1296,7 +1235,8 @@ class Part(Music_xml_node):
                         # only for verbose operation.
                         if problem != 'incomplete' and previous_measure:
                             previous_measure.message(
-                                '%s measure? Expected: %s, Difference: %s' % (problem, now, new_now - now))
+                                f'{problem} measure? Expected: {now}, Difference: {new_now - now}'
+                            )
                     now = new_now
                 measure_start_moment = now
                 measure_position = 0
@@ -1314,11 +1254,10 @@ class Part(Music_xml_node):
                         for i in assign_to_next_voice:
                             i.voice_id = voice_id
                         assign_to_next_voice = []
+                    elif voice_id:
+                        n.voice_id = voice_id
                     else:
-                        if voice_id:
-                            n.voice_id = voice_id
-                        else:
-                            assign_to_next_voice.append(n)
+                        assign_to_next_voice.append(n)
 
                 # figured bass has a duration, but applies to the next note
                 # and should not change the current measure position!
@@ -1425,7 +1364,7 @@ class Part(Music_xml_node):
             previous_measure = m
 
     # modify attributes so that only those applying to the given staff remain
-    def extract_attributes_for_staff(part, attr, staff):
+    def extract_attributes_for_staff(self, attr, staff):
         attributes = copy.copy(attr)
         attributes._children = []
         attributes._dict = attr._dict.copy()
@@ -1437,10 +1376,7 @@ class Part(Music_xml_node):
             if ((getattr(c, 'number', staff) == staff) and
                   not isinstance(c, Hash_text)):
                 attributes._children.append(c)
-        if not attributes._children:
-            return None
-        else:
-            return attributes
+        return None if not attributes._children else attributes
 
     def extract_voices(part):
         # The last indentified voice

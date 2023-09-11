@@ -85,12 +85,14 @@ def replace_template(template):
 
 
 # Determine the editor, going from more to less specific environment variables.
-editor = "emacs"
-for env in ("LYEDITOR", "XEDITOR", "EDITOR"):
-    if env in os.environ:
-        editor = os.environ[env]
-        break
-
+editor = next(
+    (
+        os.environ[env]
+        for env in ("LYEDITOR", "XEDITOR", "EDITOR")
+        if env in os.environ
+    ),
+    "emacs",
+)
 # Check if we have a template for this editor to position the cursor.
 EDITOR_TEMPLATES = {
     "atom": [("atom", "%(file)s:%(line)s:%(column)s")],
@@ -131,5 +133,5 @@ for cmd in editor_commands:
         pass
 
 sys.stderr.write(_("failed to invoke editor:"))
-sys.stderr.write(" " + str(editor_commands) + "\n")
+sys.stderr.write(f" {editor_commands}" + "\n")
 sys.exit(1)

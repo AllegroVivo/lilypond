@@ -155,10 +155,7 @@ class Package:
         libdata_pkgconfig = os.path.join(
             self.install_directory(c), "libdata", "pkgconfig"
         )
-        if os.path.isdir(libdata_pkgconfig):
-            return libdata_pkgconfig
-
-        return None
+        return libdata_pkgconfig if os.path.isdir(libdata_pkgconfig) else None
 
     def collect_pkgconfig_paths(self, c: Config) -> List[str]:
         """Collect the pkgconfig paths for all dependencies."""
@@ -174,8 +171,9 @@ class Package:
 
     def build_env_extra(self, c: Config) -> Dict[str, str]:
         """Return additional environment mappings to build this package."""
-        env: Dict[str, str] = {}
-        env["PKG_CONFIG"] = os.path.join(lib_path, "pkg-config-static.sh")
+        env: Dict[str, str] = {
+            "PKG_CONFIG": os.path.join(lib_path, "pkg-config-static.sh")
+        }
         env["PKG_CONFIG_LIBDIR"] = os.pathsep.join(self.collect_pkgconfig_paths(c))
         return env
 
@@ -202,7 +200,7 @@ class Package:
         log.flush()
 
         build_env = os.environ.copy()
-        build_env.update(self.build_env_extra(c))
+        build_env |= self.build_env_extra(c)
 
         result = subprocess.run(
             args,

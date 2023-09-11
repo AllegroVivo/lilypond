@@ -41,7 +41,7 @@ Bbox = Tuple[Interval, Interval]
 
 # so we can call directly as scripts/build/output-distance.py
 me_path = os.path.abspath(os.path.split(sys.argv[0])[0])
-sys.path.insert(0, me_path + '/../../python/')
+sys.path.insert(0, f'{me_path}/../../python/')
 
 # Keep our includes after adapting sys.path above.
 import midi # type: ignore
@@ -62,7 +62,7 @@ def log_verbose(s: str):
 def system(c: str, cwd=None):
     if not cwd:
         cwd = os.getcwd()
-    log_verbose('system %s (cwd=%s)' % (c, cwd))
+    log_verbose(f'system {c} (cwd={cwd})')
     # explicitly use bash, so we don't get dash on Ubuntu.
     subprocess.run(["/bin/bash", "-c", c.encode('utf-8')], check=True, cwd=cwd)
 
@@ -83,11 +83,7 @@ def read_file(fn: str, n: int =-1) -> bytes:
 
 
 def compare_png_images(old: str, new: str) -> float:
-    file_dims = {}
-    for fn in [old, new]:
-        if os.path.exists(fn):
-            file_dims[fn] = png_dims(fn)
-
+    file_dims = {fn: png_dims(fn) for fn in [old, new] if os.path.exists(fn)}
     maxdims: Tuple = tuple(map(max, zip(*file_dims.values())))
     for input_name in [old, new]:
         if maxdims == file_dims[input_name]:
@@ -97,11 +93,19 @@ def compare_png_images(old: str, new: str) -> float:
         # input images are grayscale, but we don't want a grayscale
         # cropped image). We need -flatten to extend the size beyond its
         # current size.
-        resize_fn = input_name + '.resize.png'
-        args = ['convert', '-crop', '%dx%d+0+0!' % maxdims,
-                '-background', 'white', '-flatten', input_name, 'PNG32:%s' % resize_fn]
+        resize_fn = f'{input_name}.resize.png'
+        args = [
+            'convert',
+            '-crop',
+            '%dx%d+0+0!' % maxdims,
+            '-background',
+            'white',
+            '-flatten',
+            input_name,
+            f'PNG32:{resize_fn}',
+        ]
         if options.verbose:
-            print('running %s' % ' '.join(args))
+            print(f"running {' '.join(args)}")
         subprocess.run(args, check=True)
         os.rename(resize_fn, input_name)
     diff_dest = new.replace('.png', '.diff.png')
@@ -112,7 +116,7 @@ def compare_png_images(old: str, new: str) -> float:
     args = ['compare', '-verbose', '-metric', 'mae', '-depth', '8',
             '-dissimilarity-threshold', '1', old, new, diff_dest]
     if options.verbose:
-        print('running %s' % ' '.join(args))
+        print(f"running {' '.join(args)}")
     proc = subprocess.Popen(args,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE)
@@ -120,15 +124,14 @@ def compare_png_images(old: str, new: str) -> float:
     err_str = err.decode('utf-8')
     if not os.path.exists(diff_dest):
         out_str = out.decode('utf-8')
-        print('missing path %s' % diff_dest)
+        print(f'missing path {diff_dest}')
         print(err_str)
         print(out_str)
         raise SystemExit
 
     dist: float = -1.0
     for line in err_str.split('\n'):
-        m = re.search(r'all: [0-9.e-]+ \(([0-9.e-]+)\)', line)
-        if m:
+        if m := re.search(r'all: [0-9.e-]+ \(([0-9.e-]+)\)', line):
             dist = float(m.group(1)) * MAX_DISTANCE
             break
     else:
@@ -242,13 +245,10 @@ class FileCompareLink (FileLink):
                          self.get_content(self.file_names[1]))
 
     def calc_distance(self):
-        if self.contents[0] == self.contents[1]:
-            return 0.0
-        else:
-            return MAX_DISTANCE
+        return 0.0 if self.contents[0] == self.contents[1] else MAX_DISTANCE
 
     def get_content(self, name: str) -> Optional[str]:
-        log_verbose('reading %s' % name)
+        log_verbose(f'reading {name}')
         try:
             return read_file(name).decode()
         except IOError as e:
@@ -267,19 +267,18 @@ class GitFileCompareLink (FileCompareLink):
             str = '\n'.join([l[:80] for l in str.split('\n')])
 
         if str:
-            str = '<pre>%s</pre>' % html.escape(str)
+            str = f'<pre>{html.escape(str)}</pre>'
 
         if not str:
             str = ''
         return str
 
     def calc_distance(self):
-        if self.contents[0] == self.contents[1]:
-            d = 0.0
-        else:
-            d = 1.0001 * options.threshold
-
-        return d
+        return (
+            0.0
+            if self.contents[0] == self.contents[1]
+            else 1.0001 * options.threshold
+        )
 
 
 class TextFileCompareLink (FileCompareLink):
@@ -311,7 +310,7 @@ class TextFileCompareLink (FileCompareLink):
                                     tofiledate=self.file_names[1]
                                     )
 
-        self.diff_lines = [l for l in diff]
+        self.diff_lines = list(diff)
         self.diff_lines = self.diff_lines[2:]
 
         return math.sqrt(float(len([l for l in self.diff_lines if l[0] in '-+'])))
@@ -321,7 +320,7 @@ class TextFileCompareLink (FileCompareLink):
         if oldnew == 1:
             str = '\n'.join([d.replace('\n', '') for d in self.diff_lines])
         if str:
-            str = '<pre>%s</pre>' % html.escape(str)
+            str = f'<pre>{html.escape(str)}</pre>'
         return str
 
 
@@ -351,10 +350,7 @@ class ImageLink (FileLink):
         return images
 
     def update_images(self, pngs: Dict[str, str]):
-        updated = []
-        for fn in self.file_names:
-            updated.append(pngs.get(fn, fn))
-
+        updated = [pngs.get(fn, fn) for fn in self.file_names]
         self.file_names = (updated[0], updated[1])
 
     def calc_distance(self) -> float:
@@ -363,9 +359,7 @@ class ImageLink (FileLink):
         if not self.image_exists[0] or not self.image_exists[1]:
             return MAX_DISTANCE
 
-        dist = compare_png_images(self.file_names[0],
-                                  self.file_names[1])
-        return dist
+        return compare_png_images(self.file_names[0], self.file_names[1])
 
     def get_cell_html(self, name: str, oldnew: int) -> str:
         base = os.path.splitext(self.file_names[oldnew])[0]
@@ -373,7 +367,7 @@ class ImageLink (FileLink):
         if self.image_exists[0] and self.image_exists[1] and self.distance() > 0:
             newimg = os.path.relpath(self.file_names[1], self.dest_dir)
             oldimg = os.path.relpath(self.file_names[0], self.dest_dir)
-            diffimg = os.path.splitext(newimg)[0] + '.diff.png'
+            diffimg = f'{os.path.splitext(newimg)[0]}.diff.png'
 
             if (oldnew == 0):
                 return '''
@@ -454,8 +448,7 @@ class ImagesLink (FileLink):
         htmls = []
 
         for (key, link) in sorted(self.image_links.items()):
-            html = link.get_cell_html('image %d' % key, oldnew)
-            if html:
+            if html := link.get_cell_html('image %d' % key, oldnew):
                 htmls.append(html)
 
         return '<br>'.join(htmls)
@@ -487,11 +480,8 @@ class MidiFileLink (TextFileCompareLink):
         tracks = midi_data[1]
 
         str = ''
-        j = 0
-        for track in tracks:
+        for j, track in enumerate(tracks):
             str += 'track %d' % j
-            j += 1
-
             for ev in track:
                 ev_str = repr(ev)
                 if re.search('LilyPond [0-9.]+', ev_str):
@@ -515,10 +505,11 @@ def eps_to_png(files: Dict[str, str]):
     # operator later on.
     data_option = []
     if options.local_datadir:
-        for basedir in set(os.path.dirname(f) for f in files):
+        for basedir in {os.path.dirname(f) for f in files}:
             if os.path.isdir(os.path.join(basedir, 'share')):
-                data_option = ['-slilypond-datadir=%s/share/lilypond/current'
-                               % os.path.abspath(basedir)]
+                data_option = [
+                    f'-slilypond-datadir={os.path.abspath(basedir)}/share/lilypond/current'
+                ]
                 break
 
     # Ghostscript doesn't like rendering empty pages.
@@ -530,11 +521,11 @@ def eps_to_png(files: Dict[str, str]):
 ''')
     empty_eps.close()
 
-    for destdir in set(os.path.dirname(f) for f in files.values()):
+    for destdir in {os.path.dirname(f) for f in files.values()}:
         os.makedirs(destdir, exist_ok=True)
 
     job_count = min(options.job_count, len(files))
-    batches : List[List[Tuple[str, str]]] = [[] for j in range(0, job_count)]
+    batches: List[List[Tuple[str, str]]] = [[] for _ in range(0, job_count)]
     j = 0
     for item in sorted(files.items()):
         batches[j].append(item)
@@ -573,14 +564,13 @@ def eps_to_png(files: Dict[str, str]):
                    'quit'
                    ]
         if options.verbose:
-            print('running %s' % args)
+            print(f'running {args}')
         proc = subprocess.Popen(args)
         procs.append(proc)
 
     for proc in procs:
-      rc = proc.wait()
-      if rc:
-          raise SystemExit('Ghostscript failed')
+        if rc := proc.wait():
+            raise SystemExit('Ghostscript failed')
 
     dt = time.time() - start
     if options.verbose:
@@ -604,8 +594,8 @@ def paired_files(dir1: str, dir2: str, pattern: str) -> Tuple[List[str], List[st
 
     files = []
     for d in (dir1, dir2):
-        foundlist = [os.path.split(f)[1] for f in glob.glob(d + '/' + pattern)]
-        found = dict((f, 1) for f in foundlist)
+        foundlist = [os.path.split(f)[1] for f in glob.glob(f'{d}/{pattern}')]
+        found = {f: 1 for f in foundlist}
         files.append(found)
 
     pairs = []
@@ -656,23 +646,25 @@ class ComparisonData:
 
         png_images = {}
         for oldnew in [0,1]:
-            png_map = dict((k, os.path.join(self.dest_dir, k.replace('.eps', '.png')))
-                           for k in images_to_convert[oldnew])
+            png_map = {
+                k: os.path.join(self.dest_dir, k.replace('.eps', '.png'))
+                for k in images_to_convert[oldnew]
+            }
             eps_to_png(png_map)
             for (key, val) in list(self.file_links.items()):
                 if isinstance(val, ImagesLink):
                     val.update_images(png_map)
 
     def compare_directories(self, dir1: str, dir2: str):
-        log_terse('comparing %s' % dir1)
-        log_terse('       to %s' % dir2)
+        log_terse(f'comparing {dir1}')
+        log_terse(f'       to {dir2}')
 
         total_compared = 0
         for ext in ['eps',
                     'midi',
                     'log',
                     'gittxt']:
-            (paired, missing1, missing2) = paired_files(dir1, dir2, '*.' + ext)
+            (paired, missing1, missing2) = paired_files(dir1, dir2, f'*.{ext}')
 
             self.missing += [(dir2, m) for m in missing2]
             self.added += [(dir2, m) for m in missing1]
@@ -687,8 +679,8 @@ class ComparisonData:
                 if (options.max_count
                         and len(self.file_links) > options.max_count):
                     continue
-                f2 = dir2 + '/' + p
-                f1 = dir1 + '/' + p
+                f2 = f'{dir2}/{p}'
+                f1 = f'{dir1}/{p}'
                 self.compare_files(f1, f2)
 
         log_terse('%6d total' % total_compared)
@@ -742,7 +734,7 @@ class ComparisonData:
         str = '\n'.join(sorted(set(non_ext)))
         if str:
             str += '\n'
-        fn = dest_dir + '/changed.txt'
+        fn = f'{dest_dir}/changed.txt'
 
         open_write_file(fn).write(str)
 
@@ -758,11 +750,7 @@ class ComparisonData:
         changed = [r for (d, r) in results if d > threshold]
         assert len(results) == len(unchanged) + len(below) + len(changed)
 
-        todo = []
-        for c in changed:
-            if isinstance(c, ImagesLink):
-                todo.append(c)
-
+        todo = [c for c in changed if isinstance(c, ImagesLink)]
         self._render_unchanged(todo)
         return (changed, below, unchanged)
 
@@ -775,8 +763,10 @@ class ComparisonData:
             oldnew_images = link.get_images_to_convert(only_changed=False)
             todo[oldnew].extend(oldnew_images[oldnew])
 
-        pngs = dict((k, os.path.join(self.dest_dir, k).replace('.eps','.png'))
-                                    for k in todo[oldnew])
+        pngs = {
+            k: os.path.join(self.dest_dir, k).replace('.eps', '.png')
+            for k in todo[oldnew]
+        }
         eps_to_png(pngs)
         for link in images_links:
             link.update_images(pngs)
@@ -784,7 +774,7 @@ class ComparisonData:
     def write_text_result_page(self, filename: str, threshold: float):
         verbose = True
         out = sys.stdout
-        if filename == '':
+        if not filename:
             verbose = options.verbose
         else:
             out = open_write_file(filename)
@@ -806,7 +796,7 @@ class ComparisonData:
         out.write('%6d unchanged\n' % len(unchanged))
 
     def create_text_result_page(self, dest_dir: str, threshold: float):
-        self.write_text_result_page(dest_dir + '/index.txt', threshold)
+        self.write_text_result_page(f'{dest_dir}/index.txt', threshold)
 
     def create_html_result_page(self, dest_dir: str, threshold: float):
         (changed, below, unchanged) = self.thresholded_results(threshold)
@@ -826,10 +816,7 @@ class ComparisonData:
             return '<tr><td>%d</td><td>%s</td></tr>\n' % (value, label)
 
         def make_nz_row(label, value):
-            if value:
-                return make_row(label, value)
-            else:
-                return ''
+            return make_row(label, value) if value else ''
 
         summary = '<table id="summary">\n'
         summary += make_nz_row('in baseline only', len(self.missing))
@@ -840,7 +827,8 @@ class ComparisonData:
 
         me = sys.argv[0]
 
-        open_write_file(dest_dir + '/style.css').write('''
+        open_write_file(f'{dest_dir}/style.css').write(
+            '''
 :root {
     background-color: white;
     color: black;
@@ -959,7 +947,8 @@ td:empty {
         --link-color: #59a0e0;
     }
 }
-''')
+'''
+        )
 
         html = '''<!DOCTYPE html>
 <html lang="en">
@@ -1047,7 +1036,7 @@ td:empty {
 </body>
 </html>''' % locals()
 
-        dest_file = dest_dir + '/index.html'
+        dest_file = f'{dest_dir}/index.html'
         open_write_file(dest_file).write(html)
 
         for link in changed:
@@ -1081,25 +1070,23 @@ def compare_tree_pairs(tree_pairs, dest_dir: str, threshold: float) -> Compariso
 
 def mkdir(x):
     if not os.path.isdir(x):
-        log_verbose('mkdir %s' % x)
+        log_verbose(f'mkdir {x}')
         os.makedirs(x)
 
 
 def link_file(x, y):
     mkdir(os.path.split(y)[0])
     try:
-        log_verbose('%s -> %s' % (x, y))
+        log_verbose(f'{x} -> {y}')
         os.link(x, y)
     except OSError as z:
-        if z.errno == errno.ENOENT:
-            pass
-        else:
+        if z.errno != errno.ENOENT:
             print('OSError', x, y, z)
             raise
 
 
 def open_write_file(x):
-    log_verbose('writing %s' % x)
+    log_verbose(f'writing {x}')
     d = os.path.split(x)[0]
     mkdir(d)
     return open(x, 'w', encoding='utf-8')
@@ -1189,8 +1176,7 @@ def test_compare_tree_pairs():
 
     assert html.index("dir2/added-multipage-2.png") <  html.index("dir2/added-multipage-10.png")
 
-    tidy_bin = shutil.which('tidy')
-    if tidy_bin:
+    if tidy_bin := shutil.which('tidy'):
         subprocess.run([tidy_bin, '-o', '/dev/null', '-q', html_fn], check=True)
 
     images_link = data.file_links['dir/20grob']
@@ -1345,7 +1331,7 @@ def run_tests():
     print('test results in ', testdir)
 
     shutil.rmtree(testdir, ignore_errors=True)
-    system('mkdir ' + testdir)
+    system(f'mkdir {testdir}')
     os.chdir(testdir)
 
     test_eps_bbox_empty()
@@ -1412,7 +1398,10 @@ def main():
         sys.exit(2)
 
     compare_tree_pairs(
-        list(zip(options.dirs[0::2], options.dirs[1::2])), options.output_dir, options.threshold)
+        list(zip(options.dirs[::2], options.dirs[1::2])),
+        options.output_dir,
+        options.threshold,
+    )
 
 
 if __name__ == '__main__':

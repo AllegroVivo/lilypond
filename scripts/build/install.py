@@ -42,16 +42,6 @@ for (o, a) in opts:
         create_dir = True
     elif o == '-g':
         group = a
-    elif o == '-m':
-        mode = int(a, base=8)
-    elif o == '-o':
-        owner = a
-    elif o == '-q':
-        quiet = True
-    elif o == '-s':
-        strip = True
-    elif o == '-t':
-        transform = a
     elif o == '-h':
         print(''' Usage: $0 [OPTION]... SRCFILE DSTFILE
  or: $0 [OPTION]... SRCFILES... DIRECTORY
@@ -74,12 +64,18 @@ Options:
 --version  display version info and exit.''')
         sys.exit(0)
 
+    elif o == '-m':
+        mode = int(a, base=8)
+    elif o == '-o':
+        owner = a
+    elif o == '-q':
+        quiet = True
+    elif o == '-s':
+        strip = True
+    elif o == '-t':
+        transform = a
 if not mode:
-    if create_dir:
-        mode = 0o755
-    else:
-        mode = 0o644
-
+    mode = 0o755 if create_dir else 0o644
 chown_me = []
 
 dest = None

@@ -148,21 +148,18 @@ def find_scale(keysig):
     ascale = [(x, 0) for x in range(-2, 5)]
 #        print "ascale: ", ascale
     transposition = keysig.pitch
-    if keysig.sig_type == 1:
-        transposition = transpose(transposition, (2, -1))
-        transposition = (transposition[0] % 7, transposition[1])
-        trscale = list(map(lambda x, k=transposition: transpose(x, k), ascale))
-    else:
-        trscale = list(map(lambda x, k=transposition: transpose(x, k), cscale))
-#        print "trscale: ", trscale
-    return trscale
+    if keysig.sig_type != 1:
+        return list(map(lambda x, k=transposition: transpose(x, k), cscale))
+    transposition = transpose(transposition, (2, -1))
+    transposition = (transposition[0] % 7, transposition[1])
+    return list(map(lambda x, k=transposition: transpose(x, k), ascale))
 
 
 def EDU_to_duration(edu):
     log = 1
     d = 4096
     while d > edu:
-        d = d >> 1
+        d >>= 1
         log = log << 1
 
     edu = edu - d
@@ -209,9 +206,8 @@ def rat_simplify(r):
         n = -n
     if n == 0:
         return (0, 1)
-    else:
-        g = gcd(n, d)
-        return (n/g, d/g)
+    g = gcd(n, d)
+    return (n/g, d/g)
 
 
 def rat_multiply(a, b):
@@ -302,8 +298,8 @@ class Slur:
             if not cs or not ce:
                 raise IndexError
 
-            cs.note_suffix = '-(' + cs.note_suffix
-            ce.note_suffix = ce.note_suffix + '-)'
+            cs.note_suffix = f'-({cs.note_suffix}'
+            ce.note_suffix = f'{ce.note_suffix}-)'
 
         except IndexError:
             sys.stderr.write("""\nHuh? Slur no %d between (%d,%d), with %d notes""" % (
@@ -404,7 +400,7 @@ class Articulation:
             lystr = '"art"'
             sys.stderr.write("\nThis happened on note %d" % self.notenumber)
 
-        c.note_suffix = '-' + lystr
+        c.note_suffix = f'-{lystr}'
 
 
 class Syllable:
@@ -444,14 +440,15 @@ class Verse:
         str = ''
         line = ''
         for s in self.syllables[1:]:
-            line = line + ' ' + s
+            line = f'{line} {s}'
             if len(line) > 72:
                 str = str + ' ' * 4 + line + '\n'
                 line = ''
 
-        str = """\nverse%s = \\lyricmode {\n %s }\n""" % (
-            encodeint(self.number - 1), str)
-        return str
+        return """\nverse%s = \\lyricmode {\n %s }\n""" % (
+            encodeint(self.number - 1),
+            str,
+        )
 
 
 class KeySignature:
@@ -460,11 +457,7 @@ class KeySignature:
         self.sig_type = sig_type
 
     def signature_type(self):
-        if self.sig_type == 1:
-            return "\\minor"
-        else:
-            # really only for 0, but we only know about 0 and 1
-            return "\\major"
+        return "\\minor" if self.sig_type == 1 else "\\major"
 
     def equal(self, other):
         if other and other.pitch == self.pitch and other.sig_type == self.sig_type:
@@ -539,7 +532,7 @@ class Frame:
 
         ln = ''
         for c in self.chords:
-            add = c.ly_string() + ' '
+            add = f'{c.ly_string()} '
             if len(ln) + len(add) > 72:
                 str = str + ln + '\n'
                 ln = ''
@@ -579,10 +572,10 @@ class Staff:
         return self.measures[no]
 
     def staffid(self):
-        return 'staff' + encodeint(self.number - 1)
+        return f'staff{encodeint(self.number - 1)}'
 
     def layerid(self, l):
-        return self.staffid() + 'layer%s' % chr(l - 1 + ord('A'))
+        return f"{self.staffid()}layer{chr(l - 1 + ord('A'))}"
 
     def dump_time_key_sigs(self):
         k = ''
@@ -600,39 +593,28 @@ class Staff:
             if g:
                 if g.key_signature and not g.key_signature.equal(last_key):
                     pitch = g.key_signature.pitch
-                    e = e + "\\key %s %s " % (lily_notename(pitch),
-                                              g.key_signature.signature_type())
+                    e += "\\key %s %s " % (
+                        lily_notename(pitch),
+                        g.key_signature.signature_type(),
+                    )
 
                     last_key = g.key_signature
                 if last_time != g.timesig:
-                    e = e + "\\time %d/%d " % g.timesig
+                    e += "\\time %d/%d " % g.timesig
                     last_time = g.timesig
 
                 if 'start' in g.repeats:
-                    e = e + ' \\bar ".|:" '
-
-                # we don't attempt voltas since they fail easily.
-                if 0:  # and g.repeat_bar == '|:' or g.repeat_bar == ':|:' or g.bracket:
-                    strs = []
-                    if g.repeat_bar == '|:' or g.repeat_bar == ':|:' or g.bracket == 'end':
-                        strs.append('#f')
-
-                    if g.bracket == 'start':
-                        strs.append('"0."')
-
-                    str = ' '.join(['(volta %s)' % x for x in strs])
-
-                    e = e + ' \\set Score.repeatCommands =  #\'(%s) ' % str
+                    e += ' \\bar ".|:" '
 
                 if g.force_break:
-                    e = e + ' \\break '
+                    e += ' \\break '
 
             if last_clef != m.clef:
-                e = e + '\\clef "%s"' % lily_clef(m.clef)
+                e += '\\clef "%s"' % lily_clef(m.clef)
                 last_clef = m.clef
             if e:
                 if gap != (0, 1):
-                    k = k + ' ' + rational_to_lily_skip(gap) + '\n'
+                    k = f'{k} {rational_to_lily_skip(gap)}' + '\n'
                 gap = (0, 1)
                 k = k + e
 
@@ -641,16 +623,15 @@ class Staff:
                 if 'stop' in g.repeats:
                     k = k + ' \\bar ":|." '
 
-        k = '%sglobal = { %s }\n\n ' % (self.staffid(), k)
-        return k
+        return '%sglobal = { %s }\n\n ' % (self.staffid(), k)
 
     def dump(self):
         str = ''
 
         layerids = []
+        last_frame = None
         for x in range(1, 5):  # 4 layers.
             laystr = ''
-            last_frame = None
             first_frame = None
             gap = (0, 1)
             for m in self.measures[1:]:
@@ -665,21 +646,20 @@ class Staff:
                 except IndexError:
                     sys.stderr.write("Skipping nonexistent frame %d\n" % x)
                     laystr = laystr + \
-                        "%% non existent frame %d (skipped)\n" % x
+                            "%% non existent frame %d (skipped)\n" % x
                 if fr:
-                    first_frame = fr
                     if gap != (0, 1):
                         laystr = laystr + \
-                            '} %s {\n ' % rational_to_lily_skip(gap)
+                                '} %s {\n ' % rational_to_lily_skip(gap)
                         gap = (0, 1)
+                    first_frame = fr
                     laystr = laystr + fr.dump()
+                elif m.global_measure:
+                    gap = rat_add(gap, m.global_measure.length())
                 else:
-                    if m.global_measure:
-                        gap = rat_add(gap, m.global_measure.length())
-                    else:
-                        sys.stderr.write(
-                            "No global measure for staff %d measure %d\n"
-                            % (self.number, m.number))
+                    sys.stderr.write(
+                        "No global measure for staff %d measure %d\n"
+                        % (self.number, m.number))
             if first_frame:
                 l = self.layerid(x)
                 laystr = '%s = { {  %s } }\n\n' % (l, laystr)
@@ -692,15 +672,12 @@ class Staff:
             stafdef = stafdef + ' \\' + i
 
         str = str + '%s = \\context Staff = %s <<\n %s\n >>\n' % \
-            (self.staffid(), self.staffid(), stafdef)
+                (self.staffid(), self.staffid(), stafdef)
         return str
 
 
 def ziplist(l):
-    if len(l) < 2:
-        return []
-    else:
-        return [(l[0], l[1])] + ziplist(l[2:])
+    return [] if len(l) < 2 else [(l[0], l[1])] + ziplist(l[2:])
 
 
 class Chord:
@@ -722,9 +699,7 @@ class Chord:
         self.grace = 0
 
     def measure(self):
-        if not self.frame:
-            return None
-        return self.frame.measure
+        return None if not self.frame else self.frame.measure
 
     def length(self):
         if self.grace:
@@ -782,7 +757,7 @@ class Chord:
                 self.pitches.append((sn, acc))
                 tiestart = tiestart or (flag & Chord.TIE_START_MASK)
         if tiestart:
-            self.chord_suffix = self.chord_suffix + ' ~ '
+            self.chord_suffix = f'{self.chord_suffix} ~ '
 
     REST_MASK = 0x40000000
     TIE_START_MASK = 0x40000000
@@ -791,11 +766,7 @@ class Chord:
     def ly_string(self):
         s = ''
 
-        rest = ''
-
-        if not (self.finale[4] & Chord.REST_MASK):
-            rest = 'r'
-
+        rest = 'r' if not (self.finale[4] & Chord.REST_MASK) else ''
         for p in self.pitches:
             (n, a) = p
             o = n / 7
@@ -809,7 +780,7 @@ class Chord:
                 nn = nn + ('\'' * o)
 
             if s:
-                s = s + ' '
+                s = f'{s} '
 
             if rest:
                 nn = rest
@@ -819,14 +790,12 @@ class Chord:
         if not self.pitches:
             s = 'r'
         if len(self.pitches) > 1:
-            s = '<%s>' % s
+            s = f'<{s}>'
 
         s = s + '%d%s' % (self.duration[0], '.' * self.duration[1])
         s = self.note_prefix + s + self.note_suffix
 
-        s = self.chord_prefix + s + self.chord_suffix
-
-        return s
+        return self.chord_prefix + s + self.chord_suffix
 
 
 def fill_list_to(list, no):
@@ -890,10 +859,7 @@ def parse_etf_file(fn, tag_dict):
     gulp = re.sub('[\n\r]+', '\n',  f.read())
     ls = gulp.split('\n^')
 
-    etf_file_dict = {}
-    for k in tag_dict:
-        etf_file_dict[k] = {}
-
+    etf_file_dict = {k: {} for k in tag_dict}
     last_tag = None
     last_numbers = None
 
@@ -902,7 +868,7 @@ def parse_etf_file(fn, tag_dict):
         if m and m.group(1) in tag_dict:
             tag = m.group(1)
 
-            indices = tuple([int(s) for s in m.group(2).split(',')])
+            indices = tuple(int(s) for s in m.group(2).split(','))
             content = l[m.end(2)+1:]
 
             tdict = etf_file_dict[tag]
@@ -911,9 +877,8 @@ def parse_etf_file(fn, tag_dict):
 
             parsed = []
 
-            if tag == 'verse' or tag == 'block':
-                m2 = re.match(r'(.*)\^end', content)
-                if m2:
+            if tag in ['verse', 'block']:
+                if m2 := re.match(r'(.*)\^end', content):
                     parsed = [m2.group(1)]
             else:
                 while content:
@@ -1076,8 +1041,7 @@ class Etf_file:
         sys.stderr.flush()
 
         for (tag, routine) in list(Etf_file.routine_dict.items()):
-            ks = list(etf_dict[tag].keys())
-            ks.sort()
+            ks = sorted(etf_dict[tag].keys())
             for k in ks:
                 routine(self, k, etf_dict[tag][k])
 
@@ -1181,12 +1145,12 @@ class Etf_file:
 
         if staffs:
             str += '\\version "2.3.25"\n'
-            str = str + '<<\n  %s\n>> } ' % ' '.join(staffs)
+            str += '<<\n  %s\n>> } ' % ' '.join(staffs)
 
         return str
 
     def __str__(self):
-        return 'ETF FILE %s %s' % (self.measures,  self.entries)
+        return f'ETF FILE {self.measures} {self.entries}'
 
     def unthread_entries(self):
         for e in self.chords[1:]:
@@ -1271,12 +1235,11 @@ for f in files:
         out_filename = os.path.basename(re.sub('(?i).etf$', '.ly', f))
 
     if out_filename == f:
-        out_filename = os.path.basename(f + '.ly')
+        out_filename = os.path.basename(f'{f}.ly')
 
     sys.stderr.write('Writing `%s\'' % out_filename)
     ly = e.dump()
 
-    fo = open(out_filename, 'w', encoding='utf-8')
-    fo.write('%% lily was here -- automatically converted by etf2ly from %s\n' % f)
-    fo.write(ly)
-    fo.close()
+    with open(out_filename, 'w', encoding='utf-8') as fo:
+        fo.write('%% lily was here -- automatically converted by etf2ly from %s\n' % f)
+        fo.write(ly)

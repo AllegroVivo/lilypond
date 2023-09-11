@@ -66,7 +66,7 @@ def parse_logfile(fn):
                 raise
 
             if group:
-                name = group + '.' + name
+                name = f'{group}.{name}'
             m = {
                 'description': tags[1],
                 'name': name,
@@ -142,8 +142,8 @@ def global_lisp_table(global_info):
 
 for name in sys.argv[1:]:
     root, _ = os.path.splitext(name)
-    global_lisp_nm = root + '.global-lisp'
-    char_lisp_nm = root + '.lisp'
+    global_lisp_nm = f'{root}.global-lisp'
+    char_lisp_nm = f'{root}.lisp'
 
     g, m = parse_logfile(name)
     open(char_lisp_nm, 'w', encoding='utf-8').write(character_lisp_table(g, m))

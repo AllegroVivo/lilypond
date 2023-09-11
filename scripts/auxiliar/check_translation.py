@@ -46,7 +46,7 @@ def do_file(file_name, lang_codes):
     if verbose:
         sys.stderr.write('%s...\n' % file_name)
     split_file_name = file_name.split('/')
-    d1, d2 = split_file_name[0:2]
+    d1, d2 = split_file_name[:2]
     if d1 in lang_codes:
         check_lang = d1
         lang_dir_index = 0
@@ -56,29 +56,28 @@ def do_file(file_name, lang_codes):
     else:
         check_lang = lang
     if check_lang == C:
-        raise Exception('cannot determine language for ' + file_name)
+        raise Exception(f'cannot determine language for {file_name}')
+    if os.path.splitext(file_name)[1] == '.texidoc':
+        original = file_name.replace(os.path.join(
+            check_lang, 'texidocs'), 'snippets', 1)
+        original = original.replace('.texidoc', '.ly', 1)
     else:
-        if os.path.splitext(file_name)[1] == '.texidoc':
-            original = file_name.replace(os.path.join(
-                check_lang, 'texidocs'), 'snippets', 1)
-            original = original.replace('.texidoc', '.ly', 1)
-        else:
-            original = dir_lang(file_name, 'en', lang_dir_index)
-        translated_contents = open(file_name, encoding='utf-8').read()
+        original = dir_lang(file_name, 'en', lang_dir_index)
+    translated_contents = open(file_name, encoding='utf-8').read()
 
         # experimental feature
-        if not touch_committishes in (current_revision, 'HEAD'):
-            (changes_in_original, error) = \
-                buildlib.check_translated_doc(original,
-                                              file_name,
-                                              translated_contents,
-                                              upper_revision=touch_committishes)
-            if not error and not changes_in_original in ('', '\n'):
-                translated_contents = \
-                    buildlib.revision_re.sub('GIT committish: ' + current_revision,
-                                             translated_contents, 1)
-                f = open(file_name, 'w', encoding='utf-8').write(translated_contents)
-                return
+    if touch_committishes not in (current_revision, 'HEAD'):
+        (changes_in_original, error) = \
+            buildlib.check_translated_doc(original,
+                                          file_name,
+                                          translated_contents,
+                                          upper_revision=touch_committishes)
+        if not error and changes_in_original not in ('', '\n'):
+            translated_contents = buildlib.revision_re.sub(
+                f'GIT committish: {current_revision}', translated_contents, 1
+            )
+            f = open(file_name, 'w', encoding='utf-8').write(translated_contents)
+            return
 
     (diff_string, error) \
         = buildlib.check_translated_doc(original,
@@ -87,17 +86,16 @@ def do_file(file_name, lang_codes):
                                         color=use_colors and not update_mode)
 
     if error:
-        sys.stderr.write('warning: %s: %s' % (file_name, error))
+        sys.stderr.write(f'warning: {file_name}: {error}')
 
     if update_mode:
         if error or len(diff_string) >= os.path.getsize(original):
-            buildlib.read_pipe(text_editor + ' ' + file_name + ' ' + original)
+            buildlib.read_pipe(f'{text_editor} {file_name} {original}')
         elif diff_string:
-            diff_file = original + '.diff'
-            f = open(diff_file, 'w', encoding='utf-8')
-            f.write(diff_string)
-            f.close()
-            buildlib.read_pipe(text_editor + ' ' + file_name + ' ' + diff_file)
+            diff_file = f'{original}.diff'
+            with open(diff_file, 'w', encoding='utf-8') as f:
+                f.write(diff_string)
+            buildlib.read_pipe(f'{text_editor} {file_name} {diff_file}')
             os.remove(diff_file)
     else:
         sys.stdout.write(diff_string)
@@ -166,7 +164,7 @@ def main():
     (parsed_revision, error) = buildlib.read_pipe(
         vc_revision_parse % touch_committishes)
     if error:
-        sys.stderr.write('warning: %s' % error)
+        sys.stderr.write(f'warning: {error}')
     else:
         touch_committishes = parsed_revision.strip()
     current_revision = buildlib.read_pipe(vc_revision_parse % 'HEAD')[0]

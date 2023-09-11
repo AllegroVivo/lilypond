@@ -58,11 +58,7 @@ def snippet_split(l):
 
 
 def count_snippet(l):
-    k = 0
-    for s in l:
-        if s.startswith('@lilypond'):
-            k += 1
-    return k
+    return sum(1 for s in l if s.startswith('@lilypond'))
 
 
 def find_next_snippet(l, k):
@@ -93,9 +89,8 @@ for pattern in file_patterns:
             sys.stderr.write(
                 "Warning: %s: no such file.\nReference file for %s not found.\n" % (ref_file, file))
             continue
-        f = open(file, 'r', encoding='utf-8')
-        target_source = comment_re.split(f.read())
-        f.close()
+        with open(file, 'r', encoding='utf-8') as f:
+            target_source = comment_re.split(f.read())
         if reduce(lambda x, y: x or y, ['-- SKELETON FILE --' in s for s in target_source]):
             sys.stderr.write("Skipping skeleton file %s\n" % file)
             continue
@@ -107,7 +102,7 @@ for pattern in file_patterns:
             raise RuntimeError(
                 "target_source and ref_source must not be empty")
         snippet_count = count_snippet(target_source)
-        if not snippet_count == count_snippet(ref_source):
+        if snippet_count != count_snippet(ref_source):
             update_exit_code(1)
             sys.stderr.write("Error: %s and %s have different snippet counts.\n\
 Update translation by at least adding a @lilypond block where necessary, then rerun this script.\n" % (ref_file, file))

@@ -30,9 +30,7 @@ import sys
 
 
 def lang_file_name(p, langext, ext):
-    if langext != '':
-        return p + '.' + langext + ext
-    return p + ext
+    return f'{p}.{langext}{ext}' if langext != '' else p + ext
 
 
 class LanguageDef:
@@ -40,10 +38,7 @@ class LanguageDef:
         self.code = code
         self.name = name
         self.enabled = True
-        if webext is None:
-            self.webext = self.code
-        else:
-            self.webext = webext
+        self.webext = self.code if webext is None else webext
         self.html_filter = html_filter
         self.enable_ly_identifier_l10n = enable_ly_identifier_l10n
 
@@ -66,16 +61,8 @@ french_html_typo_rules = ((' :', '&nbsp;:'),
 
 
 def french_html_filter(page):
-    m = html_body_re.search(page)
-    if m:
-        body_begin = m.end()
-    else:
-        body_begin = 0
-    m = html_end_body_re.search(page)
-    if m:
-        body_end = m.start()
-    else:
-        body_end = len(page)
+    body_begin = m.end() if (m := html_body_re.search(page)) else 0
+    body_end = m.start() if (m := html_end_body_re.search(page)) else len(page)
     body = page[body_begin:body_end]
     for r in french_html_typo_rules:
         body = body.replace(r[0], r[1])

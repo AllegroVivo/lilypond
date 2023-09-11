@@ -268,9 +268,7 @@ def getTrans(text, lang):
 
 
 def macroLang(name, lang):
-    if lang:
-        return name + '-' + lang
-    return name
+    return f'{name}-{lang}' if lang else name
 
 
 def make_macro(name, string):
@@ -288,19 +286,31 @@ v{version}/downloads/lilypond-{version}-{download},
 
 def make_download_source(name, version, lang):
     assert "." in version
-    vstring = "v%s.%s" % tuple(version.split(".", 2)[0:2])
+    vstring = "v%s.%s" % tuple(version.split(".", 2)[:2])
     string = f"""\
 @uref{{https://lilypond.org/download/sources/{vstring}/lilypond-{version}.tar.gz, \
 {getTrans("Source", lang)}: lilypond-{version}.tar.gz}}"""
     make_macro(macroLang(name, lang), string)
 
 def make_all_downloads(macroName, version):
-    make_download("download"+macroName+"Linux", version,
-                  "linux-x86_64.tar.gz", "GNU/Linux x86_64")
-    make_download("download"+macroName+"Darwin", version,
-                  "darwin-x86_64.tar.gz", "macOS x86_64")
-    make_download("download"+macroName+"Mingw", version,
-                  "mingw-x86_64.zip", "Windows x86_64")
+    make_download(
+        f"download{macroName}Linux",
+        version,
+        "linux-x86_64.tar.gz",
+        "GNU/Linux x86_64",
+    )
+    make_download(
+        f"download{macroName}Darwin",
+        version,
+        "darwin-x86_64.tar.gz",
+        "macOS x86_64",
+    )
+    make_download(
+        f"download{macroName}Mingw",
+        version,
+        "mingw-x86_64.zip",
+        "Windows x86_64",
+    )
 
 
 def make_ver_link(macroname, url, linktext):
@@ -312,18 +322,17 @@ def make_ver_link(macroname, url, linktext):
 
 def translateNameToUrl(manual, version):
     ver_split = version.split('.')
-    ver_minor = ver_split[0] + '.' + ver_split[1]
-    url = depth + "doc/v" + ver_minor + "/Documentation/"
+    ver_minor = f'{ver_split[0]}.{ver_split[1]}'
+    url = f"{depth}doc/v{ver_minor}/Documentation/"
 
     return url+manual
 
 
 def addLang(url, lang):
-    if lang:
-        base, ext = os.path.splitext(url)
-        return base + '.' + lang + ext
-    else:
+    if not lang:
         return url
+    base, ext = os.path.splitext(url)
+    return f'{base}.{lang}{ext}'
 
 
 def make_manual_links(name, version, lang):
@@ -335,79 +344,104 @@ def make_manual_links(name, version, lang):
     for m in manuals:
         manual = m
         # TODO: this is a stupid way of doing it
-        if m == 'music-glossary':
-            mshort = 'Glossary'
-        else:
-            mshort = m.capitalize()
+        mshort = 'Glossary' if m == 'music-glossary' else m.capitalize()
         if manual == 'music-glossary':
             manual = 'Music glossary'
         url = translateNameToUrl(m, version)
 
         if url.endswith('.html'):
-            make_ver_link(macroLang("manual"+name+mshort+'Pdf', lang),
-                          addLang(url, lang),
-                          getTrans(manual.capitalize(), lang) + '.pdf')
-            make_ver_link(macroLang("manual"+name+mshort+'Split', lang),
-                          addLang(url, lang),
-                          getTrans(manual.capitalize(), lang) +
-                          getTrans(' (split HTML)', lang))
-            make_ver_link(macroLang("manual"+name+mshort+'Big', lang),
-                          addLang(url, lang),
-                          getTrans(manual.capitalize(), lang) +
-                          getTrans(' (big HTML)', lang))
+            make_ver_link(
+                macroLang(f"manual{name}{mshort}Pdf", lang),
+                addLang(url, lang),
+                f'{getTrans(manual.capitalize(), lang)}.pdf',
+            )
+            make_ver_link(
+                macroLang(f"manual{name}{mshort}Split", lang),
+                addLang(url, lang),
+                getTrans(manual.capitalize(), lang)
+                + getTrans(' (split HTML)', lang),
+            )
+            make_ver_link(
+                macroLang(f"manual{name}{mshort}Big", lang),
+                addLang(url, lang),
+                getTrans(manual.capitalize(), lang)
+                + getTrans(' (big HTML)', lang),
+            )
             newurl = url
         else:
-            make_ver_link(macroLang("manual"+name+mshort+'Pdf', lang),
-                          # TODO: this is an even stupider way of doing it
-                          addLang(url+'.pdf', lang),
-                          getTrans(manual.capitalize(), lang) + '.pdf')
-            make_ver_link(macroLang("manual"+name+mshort+'Split', lang),
-                          addLang(url + '/index.html', lang),
-                          getTrans(manual.capitalize(), lang) +
-                          getTrans(' (split HTML)', lang))
-            make_ver_link(macroLang("manual"+name+mshort+'Big', lang),
-                          addLang(url + '-big-page.html', lang),
-                          getTrans(manual.capitalize(), lang) +
-                          getTrans(' (big HTML)', lang))
-            newurl = url + '/index.html'
-        make_ver_link(macroLang("manual"+name+mshort+'SplitNoName', lang),
-                      addLang(newurl, lang),
-                      getTrans(manual.capitalize(), lang))
+            make_ver_link(
+                macroLang(f"manual{name}{mshort}Pdf", lang),
+                addLang(f'{url}.pdf', lang),
+                f'{getTrans(manual.capitalize(), lang)}.pdf',
+            )
+            make_ver_link(
+                macroLang(f"manual{name}{mshort}Split", lang),
+                addLang(f'{url}/index.html', lang),
+                getTrans(manual.capitalize(), lang)
+                + getTrans(' (split HTML)', lang),
+            )
+            make_ver_link(
+                macroLang(f"manual{name}{mshort}Big", lang),
+                addLang(f'{url}-big-page.html', lang),
+                getTrans(manual.capitalize(), lang)
+                + getTrans(' (big HTML)', lang),
+            )
+            newurl = f'{url}/index.html'
+        make_ver_link(
+            macroLang(f"manual{name}{mshort}SplitNoName", lang),
+            addLang(newurl, lang),
+            getTrans(manual.capitalize(), lang),
+        )
 
 
 def make_regtest_links(name, version, lang):
     ver_split = version.split('.')
-    ver_minor = ver_split[0] + '.' + ver_split[1]
-    url = depth + "doc/v" + ver_minor + "/input/regression/"
+    ver_minor = f'{ver_split[0]}.{ver_split[1]}'
+    url = f"{depth}doc/v{ver_minor}/input/regression/"
 
-    make_ver_link(macroLang("regtest"+name, lang),
-                  url+"collated-files.html",
-                  getTrans("Regression tests for ", lang)+version)
-    make_ver_link(macroLang("regtest"+name+"Pdf", lang),
-                  url+"collated-files.pdf",
-                  getTrans("PDF of regtests for ", lang)+version)
-    make_ver_link(macroLang("regtest"+name+"Xml", lang),
-                  url+"musicxml/collated-files.html",
-                  getTrans("MusicXML Regression tests for ", lang)+version)
-    make_ver_link(macroLang("regtest"+name+"Abc", lang),
-                  url+"abc2ly/collated-files.html",
-                  getTrans("abc2ly Regression tests for ", lang)+version)
-    make_ver_link(macroLang("regtest"+name+"XmlPdf", lang),
-                  url+"musicxml/collated-files.pdf",
-                  getTrans("PDF of MusicXML regtests for ", lang)+version)
-    make_ver_link(macroLang("regtest"+name+"AbcPdf", lang),
-                  url+"abc2ly/collated-files.pdf",
-                  getTrans("PDF of abc2ly regtests for ", lang)+version)
+    make_ver_link(
+        macroLang(f"regtest{name}", lang),
+        f"{url}collated-files.html",
+        getTrans("Regression tests for ", lang) + version,
+    )
+    make_ver_link(
+        macroLang(f"regtest{name}Pdf", lang),
+        f"{url}collated-files.pdf",
+        getTrans("PDF of regtests for ", lang) + version,
+    )
+    make_ver_link(
+        macroLang(f"regtest{name}Xml", lang),
+        f"{url}musicxml/collated-files.html",
+        getTrans("MusicXML Regression tests for ", lang) + version,
+    )
+    make_ver_link(
+        macroLang(f"regtest{name}Abc", lang),
+        f"{url}abc2ly/collated-files.html",
+        getTrans("abc2ly Regression tests for ", lang) + version,
+    )
+    make_ver_link(
+        macroLang(f"regtest{name}XmlPdf", lang),
+        f"{url}musicxml/collated-files.pdf",
+        getTrans("PDF of MusicXML regtests for ", lang) + version,
+    )
+    make_ver_link(
+        macroLang(f"regtest{name}AbcPdf", lang),
+        f"{url}abc2ly/collated-files.pdf",
+        getTrans("PDF of abc2ly regtests for ", lang) + version,
+    )
 
 def make_doctarball_links(name, version, lang):
-    make_download(macroLang("doctarball"+name, lang), version,
-                  "documentation.tar.xz",
-                  getTrans("Doc tarball for ", lang)+version)
+    make_download(
+        macroLang(f"doctarball{name}", lang),
+        version,
+        "documentation.tar.xz",
+        getTrans("Doc tarball for ", lang) + version,
+    )
 
 
 print("@c This file was autogenerated")
-print("@c     from: %s" % version_data["TOPLEVEL_VERSION"])
-print("@c     by:   %s" % sys.argv[0])
+print(f'@c     from: {version_data["TOPLEVEL_VERSION"]}')
+print(f"@c     by:   {sys.argv[0]}")
 print("")
 print("@c ************************ Download binaries ************")
 print("")

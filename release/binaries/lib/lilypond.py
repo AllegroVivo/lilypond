@@ -143,13 +143,14 @@ class LilyPond(ConfigurePackage):
         return env
 
     def configure_args(self, c: Config) -> List[str]:
-        static = []
-        if not c.is_macos():
-            static = [
+        static = (
+            [
                 # Include the static version of libstdc++.
                 "--enable-static-gxx",
             ]
-
+            if not c.is_macos()
+            else []
+        )
         flexlexer = []
         if c.is_mingw():
             flexlexer_dir = self.flexlexer_directory(c)

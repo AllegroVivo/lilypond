@@ -72,7 +72,7 @@ def is_verbose():
 def _print_logmessage(level, s, fullmessage=True, newline=True):
     if _is_loglevel(level):
         if fullmessage:
-            s = program_name + ": " + s + "\n"
+            s = f"{program_name}: {s}" + "\n"
         elif newline:
             s += '\n'
         sys.stderr.write(s)
@@ -96,39 +96,29 @@ def debug_output(s, fullmessage=False, newline=True):
 
 
 def handle_globs(args):
-    # On Windows, we have to expand globs by ourselves.
-    if os.name == 'nt':
-        from glob import glob
-        files = []
-        for arg in args:
-            # In `cmd.exe`, only `*` and `?` are metacharacters but not `[`
-            # (and `]`).
-            expanded = glob(arg.replace('[', '[[]'))
-            if expanded:
-                files.extend(expanded)
-            else:
-                # If the expansion returns nothing, add the argument as-is;
-                # more handling is then to be done by the caller.
-                files.append(arg)
-        return files
-    else:
+    if os.name != 'nt':
         return args
+    from glob import glob
+    files = []
+    for arg in args:
+        if expanded := glob(arg.replace('[', '[[]')):
+            files.extend(expanded)
+        else:
+            # If the expansion returns nothing, add the argument as-is;
+            # more handling is then to be done by the caller.
+            files.append(arg)
+    return files
 
 
 class _NonDentedHeadingFormatter (optparse.IndentedHelpFormatter):
     def format_heading(self, heading):
-        if heading:
-            return heading[0].upper() + heading[1:] + ':\n'
-        return ''
+        return heading[0].upper() + heading[1:] + ':\n' if heading else ''
 
     def format_option_strings(self, option):
-        sep = ' '
-        if option._short_opts and option._long_opts:
-            sep = ','
-
+        sep = ',' if option._short_opts and option._long_opts else ' '
         metavar = ''
         if option.takes_value():
-            metavar = '=%s' % option.metavar or option.dest.upper()
+            metavar = f'={option.metavar}' or option.dest.upper()
 
         return "%3s%s %s%s" % (" ".join(option._short_opts),
                                sep,
